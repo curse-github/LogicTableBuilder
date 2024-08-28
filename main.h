@@ -3,6 +3,7 @@
 #include <string>
 #include <locale>
 #include <codecvt>
+#include <windows.h>
 
 #include <vector>
 #include <algorithm>

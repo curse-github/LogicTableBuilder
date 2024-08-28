@@ -1,6 +1,6 @@
 #include "./main.h"
 using std::wstring_convert, std::codecvt_utf8, std::wstring;
-using std::cout, std::wcout, std::endl;
+using std::cout, std::endl;
 using std::vector;
 
 #pragma region variable handling
@@ -80,12 +80,12 @@ operatorType getOperator(const wchar_t* input) {
         //case L'!': return {1,1};
 
         case L'⋀': return {2,1};
-        case L'.': return {2,1};// 
+        case L'.': return {2,1};
         //case L'&': return {2,1};
         case L'*': return {2,1};
 
         case L'⋁': return {3,1};
-        case L'|': return {3,1};
+        //case L'|': return {3,1};
         case L'+': return {3,1};
 
         case L'⊕': return {4,1};
@@ -105,112 +105,92 @@ operatorType getOperator(const wchar_t* input) {
 }
 #pragma endregion operation parsing
 
-char eval(const wchar_t* input, size_t size) {
-    char A='F';
-    char B='F';
-    operatorType operatorAtZero = getOperator(input);
-    // is the negation operator
-    if (operatorAtZero.type==1) {
-        // replace negation sign and whatever is after with 
-        if ((input[1]>='A' && input[1]<='Z') || (input[1]=='0') || (input[1]=='1')) {
-            A=negation(input[1]);
-            addVar(input[1]);
-            // if that is all thats in the expression, return that value of it
-            if (size==1) return getVar(A);
-            // check if there is an expression after the first character
-            operatorType operationAtTwo = getOperator(input+2);
-            // return error if it was an invalid operator
-            if (operationAtTwo.type==-1||operationAtTwo.type==1) return 'E';
-            // set B to the rest of the string
-            B=eval(input+2+operationAtTwo.len,size-2-operationAtTwo.len);
-            if (B=='E') return 'E';
-            // apply the operator between A and B and return it
-            switch(operationAtTwo.type) {
-                case 2: return conjunction(A,B);
-                case 3: return disjunction(A,B);
-                case 4: return exclusiveOr(A,B);
-                case 5: return implication(A,B);
-                case 6: return iff(A,B);
-                default: return 'E';
-            }
-        } else if ((input[0]=='(')||(input[0]=='[')||(input[0]=='{')) {
-            // search for ending parenthasis and return a new expression
-            // with the section in parenthasis replaced with
-            // the evaluated expression of the inside of the parenthasis
-            switch(input[0]) {
-                case '(':
-                    {
-                        short numParenthasis = 0;
-                        for (size_t i = 1; i < size; i++) {
-                            if (input[i]=='(') numParenthasis++;
-                            else if (input[i]==')') {
-                                if (numParenthasis==0) {
-                                    A=negation(eval(input+1,i-1));
-                                    if (i==(size-1)) return A;
-                                    wstring newStr = L"";
-                                    newStr+=A;
-                                    newStr+=(input+i+1);
-                                    return eval(newStr.c_str(),newStr.size());
-                                } else numParenthasis--;
-                            } else continue;
-                        }
-                        return 'E';
-                    }
-                case '[':
-                    {
-                        short numBrackets = 0;
-                        for (size_t i = 1; i < size; i++) {
-                            if (input[i]=='[') numBrackets++;
-                            else if (input[i]==']') {
-                                if (numBrackets==0) {
-                                    A=negation(eval(input+1,i-1));
-                                    if (i==(size-1)) return A;
-                                    wstring newStr = L"";
-                                    newStr+=A;
-                                    newStr+=(input+i+1);
-                                    return eval(newStr.c_str(),newStr.size());
-                                } else numBrackets--;
-                            } else continue;
-                        }
-                        return 'E';
-                    }
-                case '{':
-                    {
-                        short numCurlyBrackets = 0;
-                        for (size_t i = 1; i < size; i++) {
-                            if (input[i]=='{') numCurlyBrackets++;
-                            else if (input[i]=='}') {
-                                if (numCurlyBrackets==0) {
-                                    A=negation(eval(input+1,i-1));
-                                    if (i==(size-1)) return A;
-                                    wstring newStr = L"";
-                                    newStr+=A;
-                                    newStr+=(input+i+1);
-                                    return eval(newStr.c_str(),newStr.size());
-                                } else numCurlyBrackets--;
-                            } else continue;
-                        }
-                        return 'E';
-                    }
-            }
-        }
+int getEndingParenthesisIndex(const wchar_t* input,size_t size) {
+    short numParenthasis = 0;
+    for (size_t i = 1; i < size; i++) {
+        if (input[i]=='(') numParenthasis++;
+        else if (input[i]==')') {
+            if (numParenthasis==0) {
+                return i;
+            } else numParenthasis--;
+        } else continue;
     }
-    // is a variable, true, or false
-    else if ((input[0]>='A' && input[0]<='Z') || (input[0]=='0') || (input[0]=='1')) {
-        // set A to the character
-        A=input[0];
-        addVar(A);
-        // if that is all thats in the expression, return that value of it
-        if (size==1) return getVar(A);
-        // check if there is an expression after the first character
-        operatorType operationAtOne = getOperator(input+1);
-        // return error if it was an invalid operator
-        if (operationAtOne.type==-1||operationAtOne.type==1) return 'E';
-        // set B to the rest of the string
-        B=eval(input+1+operationAtOne.len,size-1-operationAtOne.len);
-        if (B=='E') return 'E';
-        // apply the operator between A and B and return it
-        switch(operationAtOne.type) {
+    return -1;
+}
+int getEndingBracketIndex(const wchar_t* input,size_t size) {
+    short numBrackets = 0;
+    for (size_t i = 1; i < size; i++) {
+        if (input[i]=='[') numBrackets++;
+        else if (input[i]==']') {
+            if (numBrackets==0) {
+                return i;
+            } else numBrackets--;
+        } else continue;
+    }
+    return -1;
+}
+int getEndingBraceIndex(const wchar_t* input,size_t size) {
+    short numBraces = 0;
+    for (size_t i = 1; i < size; i++) {
+        if (input[i]=='{') numBraces++;
+        else if (input[i]=='}') {
+            if (numBraces==0) {
+                return i;
+            } else numBraces--;
+        } else continue;
+    }
+    return -1;
+}
+
+char eval(const wchar_t* inputStr, size_t size) {
+    char A='E';
+    char B='E';
+    int index=0;
+    bool isANegated = false;
+    while (true) {
+        operatorType operatorStart = getOperator(inputStr+index);
+        if (operatorStart.type==1) { isANegated=!isANegated;index++; }
+        else break;
+    }
+
+    if ((inputStr[index]>='A' && inputStr[index]<='Z') || (inputStr[index]=='0') || (inputStr[index]=='1')) {
+        addVar(inputStr[index]);
+        A=getVar(inputStr[index]);
+        index++;
+    } else if ((inputStr[index]=='(')||(inputStr[index]=='[')||(inputStr[index]=='{')) {
+        switch(inputStr[index]) {
+            case L'(':
+                {
+                    int endingParenthesisIndex = getEndingParenthesisIndex(inputStr+index,size-index);
+                    if (endingParenthesisIndex==-1) return 'E';
+                    A=eval(inputStr+index+1,index+endingParenthesisIndex-1);
+                    index+=endingParenthesisIndex+1;
+                } break;
+            case L'[':
+                {
+                    int endingBracketIndex = getEndingBracketIndex(inputStr+index,size-index);
+                    if (endingBracketIndex==-1) return 'E';
+                    A=eval(inputStr+index+1,index+endingBracketIndex-1);
+                    index+=endingBracketIndex+1;
+                } break;
+            case L'{':
+                {
+                    int endingBraceIndex = getEndingBraceIndex(inputStr+index,size-index);
+                    if (endingBraceIndex==-1) return 'E';
+                    A=eval(inputStr+index+1,index+endingBraceIndex-1);
+                    index+=endingBraceIndex+1;
+                } break;
+            default: return 'E';// should be impossible
+        }
+    } else return 'E';
+    if (isANegated) A=negation(A);
+    if (index==size) return A;
+
+    operatorType operatorThing = getOperator(inputStr+index);
+    if ((operatorThing.type!=-1)&&(operatorThing.type!=1)) {
+        index+=operatorThing.len;
+        B=eval(inputStr+index,size-index);
+        switch(operatorThing.type) {
             case 2: return conjunction(A,B);
             case 3: return disjunction(A,B);
             case 4: return exclusiveOr(A,B);
@@ -218,68 +198,7 @@ char eval(const wchar_t* input, size_t size) {
             case 6: return iff(A,B);
             default: return 'E';
         }
-    } else if ((input[0]=='(')||(input[0]=='[')||(input[0]=='{')) {
-        // search for ending parenthasis and return a new expression
-        // with the section in parenthasis replaced with
-        // the evaluated expression of the inside of the parenthasis
-        switch(input[0]) {
-            case '(':
-                {
-                    short numParenthasis = 0;
-                    for (size_t i = 1; i < size; i++) {
-                        if (input[i]=='(') numParenthasis++;
-                        else if (input[i]==')') {
-                            if (numParenthasis==0) {
-                                A=eval(input+1,i-1);
-                                if (i==(size-1)) return A;
-                                wstring newStr = L"";
-                                newStr+=A;
-                                newStr+=(input+i+1);
-                                return eval(newStr.c_str(),newStr.size());
-                            } else numParenthasis--;
-                        } else continue;
-                    }
-                    return 'E';
-                }
-            case '[':
-                {
-                    short numBrackets = 0;
-                    for (size_t i = 1; i < size; i++) {
-                        if (input[i]=='[') numBrackets++;
-                        else if (input[i]==']') {
-                            if (numBrackets==0) {
-                                A=eval(input+1,i-1);
-                                if (i==(size-1)) return A;
-                                wstring newStr = L"";
-                                newStr+=A;
-                                newStr+=(input+i+1);
-                                return eval(newStr.c_str(),newStr.size());
-                            } else numBrackets--;
-                        } else continue;
-                    }
-                    return 'E';
-                }
-            case '{':
-                {
-                    short numCurlyBrackets = 0;
-                    for (size_t i = 1; i < size; i++) {
-                        if (input[i]=='{') numCurlyBrackets++;
-                        else if (input[i]=='}') {
-                            if (numCurlyBrackets==0) {
-                                A=eval(input+1,i-1);
-                                if (i==(size-1)) return A;
-                                wstring newStr = L"";
-                                newStr+=A;
-                                newStr+=(input+i+1);
-                                return eval(newStr.c_str(),newStr.size());
-                            } else numCurlyBrackets--;
-                        } else continue;
-                    }
-                    return 'E';
-                }
-        }
-    }
-    return 'E';
+    } else return 'E';
 }
 char eval(const wstring input) { return eval(input.c_str(),input.size()); }
 
@@ -300,9 +219,16 @@ void printLine() {
 void removeStrings(wstring& input) {
     input.erase(std::remove(input.begin(), input.end(),L' '), input.end());
 }
+
+void setPrintColorRed(){ SetConsoleTextAttribute(GetStdHandle((DWORD)-11),FOREGROUND_RED); }
+void setPrintColorGreen(){ SetConsoleTextAttribute(GetStdHandle((DWORD)-11),FOREGROUND_GREEN); }
+void setPrintColorBlue(){ SetConsoleTextAttribute(GetStdHandle((DWORD)-11),FOREGROUND_BLUE); }
+void setPrintColorCyan(){ SetConsoleTextAttribute(GetStdHandle((DWORD)-11),FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY); }
+void setPrintColorNone(){ SetConsoleTextAttribute(GetStdHandle((DWORD)-11), FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY); }
 void showTable() {
     // used for converting the utf-8 strings to regular, so it can be printed
     wstring_convert<codecvt_utf8<wchar_t>, wchar_t> converter;
+    
     // evaluate the formulas to get the list of variables in them
     size_t numFormulas = tableFormulas.size();
     for (size_t i = 0; i < numFormulas; i++) {
@@ -313,10 +239,10 @@ void showTable() {
     // print seperating line
     printLine();
     // print table header of each variable and formula
-    cout << "|";
-    for (short i = 0; i < numVariables; i++) cout << " \033[34m" << variables[i] << "\033[0m |";
+    cout << '|';
+    for (short i = 0; i < numVariables; i++) { setPrintColorBlue(); cout << ' ' << variables[i]; setPrintColorNone(); cout << " |"; }
     for (size_t i = 0; i < numFormulas; i++) {
-        cout << " \033[34m" << converter.to_bytes(tableFormulas[i]) << "\033[0m |";
+        setPrintColorBlue(); wprintf(L" %S ",tableFormulas[i].c_str()); setPrintColorNone(); cout << '|';
     }
     cout << endl;
     // print seperating line
@@ -331,14 +257,15 @@ void showTable() {
             // set the value
             setVar(variables[j-1],val);
             // print the value as T or F
-            cout << ' ' << (val?"\033[32mT":"\033[31mF") << "\033[0m |";
+            if (val) setPrintColorGreen();else setPrintColorRed(); cout << ' ' << (val?'T':'F'); setPrintColorNone();cout << " |";
         }
         // print the columns for each formula
         for (size_t j = 0; j < numFormulas; j++) {
             // evaluate the formula after setting the values of the variables
             char returnVal = eval(tableFormulas[j]);
             // print value as T or F
-            cout << ' ' << ((returnVal=='T')?"\033[32mT":((returnVal=='F')?"\033[31mF":"\033[36mE")) << "\033[0m ";
+            if (returnVal=='T') setPrintColorGreen();else if (returnVal=='F') setPrintColorRed(); else setPrintColorCyan();
+            cout << ' ' << (((returnVal=='T')||(returnVal=='F'))?returnVal:'E'); setPrintColorNone();cout << " ";
             // print more spaces to make the vertical lines line up
             for (size_t k = 0; k < tableFormulas[j].size()-1; k++) {
                 cout << ' ';
