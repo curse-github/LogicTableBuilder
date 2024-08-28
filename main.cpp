@@ -3,24 +3,30 @@ using std::wstring_convert, std::codecvt_utf8, std::wstring;
 using std::cout, std::wcout, std::endl;
 using std::vector;
 
+#pragma region variable handling
 char values[26] = {
     'F','F','F','F','F','F','F','F','F','F','F','F','F',
-    'F','F','F','F','F','F','T','F','F','F','F','F','F'
+    'F','F','F','F','F','F','F','F','F','F','F','F','F'
 };
 vector<char> variables;
 void addVar(const char& var) {
-    if ((var=='T') || (var=='F')) return;
+    if ((var=='T') || (var=='F') || (var=='1') || (var=='0')) return;
     if (std::find(variables.cbegin(),variables.cend(),var)==variables.cend()) {
         variables.push_back(var);
     }
 }
 char getVar(const char& A) {
+    if ((A=='T')||(A=='F')) return A;
+    if (A=='1') return 'T';
+    if (A=='0') return 'F';
     return values[A-'A'];
 }
 void setVar(const char& A, const bool& value) {
     if (value) values[A-'A']='T';
     else values[A-'A']='F';
 }
+#pragma endregion variable handling
+
 #pragma region operations
 // ¬A
 char negation(const char& A) {
@@ -53,52 +59,237 @@ char iff(const char& A, const char& B) {
     return 'F';
 }
 #pragma endregion operations
-char getOperator(const wchar_t& input) {
-    switch(input) {
-        case L'¬': return 1;
-        case L'~': return 1;
-        case L'!': return 1;
-        case L'⋀': return 2;
-        case L'.': return 2;
-        case L'&': return 2;
-        case L'⋁': return 3;
-        case L'|': return 3;
-        case L'⊕': return 4;
-        case L'^': return 4;
-        case L'→': return 5;
-        case L'⊃': return 5;
-        case L'↔': return 6;
-        case L'≡': return 6;
-        default: return -1;
+
+#pragma region operation parsing
+// type 1 is negation
+// type 2 is conjunction
+// type 3 is disjunction
+// type 4 is exclusive ot
+// type 5 is implication
+// type 6 is iff (if and only if)
+// type of -1 is an invalid operator
+struct operatorType {
+    char type;
+    char len;
+};
+// returns the struct defined above with the type and number of chars long the operator is
+operatorType getOperator(const wchar_t* input) {
+    switch(input[0]) {
+        case L'¬': return {1,1};
+        case L'~': return {1,1};
+        //case L'!': return {1,1};
+
+        case L'⋀': return {2,1};
+        case L'.': return {2,1};// 
+        //case L'&': return {2,1};
+        case L'*': return {2,1};
+
+        case L'⋁': return {3,1};
+        case L'|': return {3,1};
+        case L'+': return {3,1};
+
+        case L'⊕': return {4,1};
+        case L'^': return {4,1};
+
+        case L'→': return {5,1};
+        case L'⊃': return {5,1};
+        case L'-': if (input[1]==L'>') return {5,2}; else return {-1,0};
+
+        case L'↔': return {6,1};
+        case L'≡': return {6,1};
+        case L'=': if (input[1]==L'='&&input[2]==L'=') return {6,3}; else return {-1,0};
+        case L'<': if (input[1]==L'-'&&input[2]==L'>') return {6,3}; else return {-1,0};
+
+        default: return {-1,0};
     }
 }
-char evalSimple(const wchar_t* input,size_t size) {
-    if (getOperator(input[0])==1) {
-        if (input[1]<'A' || input[1]>'Z') return 'E';
-        else if (size>2) return 'E';
-        else { addVar(input[1]); return negation(input[1]); }
-    }
-    else if (input[0]<'A' || input[0]>'Z') return 'E';
-    else if (size==1) { addVar(input[0]); return getVar(input[0]); }
-    else if (size!=3) return 'E';
-    else if (input[2]<'A' || input[2]>'Z') return 'E';
-    else {
-        switch(getOperator(input[1])) {
-            case 2: addVar(input[0]); addVar(input[2]); return conjunction(input[0],input[2]);
-            case 3: addVar(input[0]); addVar(input[2]); return disjunction(input[0],input[2]);
-            case 4: addVar(input[0]); addVar(input[2]); return exclusiveOr(input[0],input[2]);
-            case 5: addVar(input[0]); addVar(input[2]); return implication(input[0],input[2]);
-            case 6: addVar(input[0]); addVar(input[2]); return iff(input[0],input[2]);
-            default: return 'E';
+#pragma endregion operation parsing
+
+char eval(const wchar_t* input, size_t size) {
+    char A='F';
+    char B='F';
+    operatorType operatorAtZero = getOperator(input);
+    // is the negation operator
+    if (operatorAtZero.type==1) {
+        // replace negation sign and whatever is after with 
+        if ((input[1]>='A' && input[1]<='Z') || (input[1]=='0') || (input[1]=='1')) {
+            A=negation(input[1]);
+            addVar(input[1]);
+            // if that is all thats in the expression, return that value of it
+            if (size==1) return getVar(A);
+            // check if there is an expression after the first character
+            operatorType operationAtTwo = getOperator(input+2);
+            // return error if it was an invalid operator
+            if (operationAtTwo.type==-1||operationAtTwo.type==1) return 'E';
+            // set B to the rest of the string
+            B=eval(input+2+operationAtTwo.len,size-2-operationAtTwo.len);
+            if (B=='E') return 'E';
+            // apply the operator between A and B and return it
+            switch(operationAtTwo.type) {
+                case 2: return conjunction(A,B);
+                case 3: return disjunction(A,B);
+                case 4: return exclusiveOr(A,B);
+                case 5: return implication(A,B);
+                case 6: return iff(A,B);
+                default: return 'E';
+            }
+        } else if ((input[0]=='(')||(input[0]=='[')||(input[0]=='{')) {
+            // search for ending parenthasis and return a new expression
+            // with the section in parenthasis replaced with
+            // the evaluated expression of the inside of the parenthasis
+            switch(input[0]) {
+                case '(':
+                    {
+                        short numParenthasis = 0;
+                        for (size_t i = 1; i < size; i++) {
+                            if (input[i]=='(') numParenthasis++;
+                            else if (input[i]==')') {
+                                if (numParenthasis==0) {
+                                    A=negation(eval(input+1,i-1));
+                                    if (i==(size-1)) return A;
+                                    wstring newStr = L"";
+                                    newStr+=A;
+                                    newStr+=(input+i+1);
+                                    return eval(newStr.c_str(),newStr.size());
+                                } else numParenthasis--;
+                            } else continue;
+                        }
+                        return 'E';
+                    }
+                case '[':
+                    {
+                        short numBrackets = 0;
+                        for (size_t i = 1; i < size; i++) {
+                            if (input[i]=='[') numBrackets++;
+                            else if (input[i]==']') {
+                                if (numBrackets==0) {
+                                    A=negation(eval(input+1,i-1));
+                                    if (i==(size-1)) return A;
+                                    wstring newStr = L"";
+                                    newStr+=A;
+                                    newStr+=(input+i+1);
+                                    return eval(newStr.c_str(),newStr.size());
+                                } else numBrackets--;
+                            } else continue;
+                        }
+                        return 'E';
+                    }
+                case '{':
+                    {
+                        short numCurlyBrackets = 0;
+                        for (size_t i = 1; i < size; i++) {
+                            if (input[i]=='{') numCurlyBrackets++;
+                            else if (input[i]=='}') {
+                                if (numCurlyBrackets==0) {
+                                    A=negation(eval(input+1,i-1));
+                                    if (i==(size-1)) return A;
+                                    wstring newStr = L"";
+                                    newStr+=A;
+                                    newStr+=(input+i+1);
+                                    return eval(newStr.c_str(),newStr.size());
+                                } else numCurlyBrackets--;
+                            } else continue;
+                        }
+                        return 'E';
+                    }
+            }
         }
     }
+    // is a variable, true, or false
+    else if ((input[0]>='A' && input[0]<='Z') || (input[0]=='0') || (input[0]=='1')) {
+        // set A to the character
+        A=input[0];
+        addVar(A);
+        // if that is all thats in the expression, return that value of it
+        if (size==1) return getVar(A);
+        // check if there is an expression after the first character
+        operatorType operationAtOne = getOperator(input+1);
+        // return error if it was an invalid operator
+        if (operationAtOne.type==-1||operationAtOne.type==1) return 'E';
+        // set B to the rest of the string
+        B=eval(input+1+operationAtOne.len,size-1-operationAtOne.len);
+        if (B=='E') return 'E';
+        // apply the operator between A and B and return it
+        switch(operationAtOne.type) {
+            case 2: return conjunction(A,B);
+            case 3: return disjunction(A,B);
+            case 4: return exclusiveOr(A,B);
+            case 5: return implication(A,B);
+            case 6: return iff(A,B);
+            default: return 'E';
+        }
+    } else if ((input[0]=='(')||(input[0]=='[')||(input[0]=='{')) {
+        // search for ending parenthasis and return a new expression
+        // with the section in parenthasis replaced with
+        // the evaluated expression of the inside of the parenthasis
+        switch(input[0]) {
+            case '(':
+                {
+                    short numParenthasis = 0;
+                    for (size_t i = 1; i < size; i++) {
+                        if (input[i]=='(') numParenthasis++;
+                        else if (input[i]==')') {
+                            if (numParenthasis==0) {
+                                A=eval(input+1,i-1);
+                                if (i==(size-1)) return A;
+                                wstring newStr = L"";
+                                newStr+=A;
+                                newStr+=(input+i+1);
+                                return eval(newStr.c_str(),newStr.size());
+                            } else numParenthasis--;
+                        } else continue;
+                    }
+                    return 'E';
+                }
+            case '[':
+                {
+                    short numBrackets = 0;
+                    for (size_t i = 1; i < size; i++) {
+                        if (input[i]=='[') numBrackets++;
+                        else if (input[i]==']') {
+                            if (numBrackets==0) {
+                                A=eval(input+1,i-1);
+                                if (i==(size-1)) return A;
+                                wstring newStr = L"";
+                                newStr+=A;
+                                newStr+=(input+i+1);
+                                return eval(newStr.c_str(),newStr.size());
+                            } else numBrackets--;
+                        } else continue;
+                    }
+                    return 'E';
+                }
+            case '{':
+                {
+                    short numCurlyBrackets = 0;
+                    for (size_t i = 1; i < size; i++) {
+                        if (input[i]=='{') numCurlyBrackets++;
+                        else if (input[i]=='}') {
+                            if (numCurlyBrackets==0) {
+                                A=eval(input+1,i-1);
+                                if (i==(size-1)) return A;
+                                wstring newStr = L"";
+                                newStr+=A;
+                                newStr+=(input+i+1);
+                                return eval(newStr.c_str(),newStr.size());
+                            } else numCurlyBrackets--;
+                        } else continue;
+                    }
+                    return 'E';
+                }
+        }
+    }
+    return 'E';
 }
+char eval(const wstring input) { return eval(input.c_str(),input.size()); }
 
 vector<wstring> tableFormulas;
 void printLine() {
     size_t numFormulas = tableFormulas.size();
     size_t numVariables = variables.size();
+    // print dashes for the width of the variable columns
     cout << '-'; for (short i = numVariables; i > 0; i--) cout << "----";
+    // print dashes for the width of the formula columns
     for (size_t i = 0; i < numFormulas; i++) {
         cout << "---";
         short len = static_cast<short>(tableFormulas[i].size());
@@ -106,36 +297,49 @@ void printLine() {
     }
     cout << endl;
 }
+void removeStrings(wstring& input) {
+    input.erase(std::remove(input.begin(), input.end(),L' '), input.end());
+}
 void showTable() {
+    // used for converting the utf-8 strings to regular, so it can be printed
     wstring_convert<codecvt_utf8<wchar_t>, wchar_t> converter;
-
+    // evaluate the formulas to get the list of variables in them
     size_t numFormulas = tableFormulas.size();
     for (size_t i = 0; i < numFormulas; i++) {
-        evalSimple(tableFormulas[i].c_str(),tableFormulas[i].size());
+        removeStrings(tableFormulas[i]);
+        eval(tableFormulas[i]);
     }
     size_t numVariables = variables.size();
-    // seperating line
+    // print seperating line
     printLine();
-    // truth table header
+    // print table header of each variable and formula
     cout << "|";
     for (short i = 0; i < numVariables; i++) cout << " \033[34m" << variables[i] << "\033[0m |";
     for (size_t i = 0; i < numFormulas; i++) {
         cout << " \033[34m" << converter.to_bytes(tableFormulas[i]) << "\033[0m |";
     }
     cout << endl;
-    // seperating line
+    // print seperating line
     printLine();
-    // truth table body
+    // print body of the table
     for (int i = (1<<numVariables)-1; i >= 0 ; i--) {
         cout << "|";
+        // print the columns for each variable
         for (short j = numVariables; j > 0; j--) {
+            // get each bit of the i variable to get a true or false value for each variable
             bool val = (i&(1<<(numVariables-j)))!=0;
+            // set the value
             setVar(variables[j-1],val);
+            // print the value as T or F
             cout << ' ' << (val?"\033[32mT":"\033[31mF") << "\033[0m |";
         }
+        // print the columns for each formula
         for (size_t j = 0; j < numFormulas; j++) {
-            char returnVal = evalSimple(tableFormulas[j].c_str(),tableFormulas[j].size());
+            // evaluate the formula after setting the values of the variables
+            char returnVal = eval(tableFormulas[j]);
+            // print value as T or F
             cout << ' ' << ((returnVal=='T')?"\033[32mT":((returnVal=='F')?"\033[31mF":"\033[36mE")) << "\033[0m ";
+            // print more spaces to make the vertical lines line up
             for (size_t k = 0; k < tableFormulas[j].size()-1; k++) {
                 cout << ' ';
             }
@@ -149,6 +353,7 @@ void showTable() {
     cout << endl;
     variables.clear();
 }
+
 /*
 1: negation (not): '¬', '~', '!'
 2: conjunction (and): '⋀', '.', '&'
@@ -158,12 +363,15 @@ void showTable() {
 6: iff: '↔', '≡'
 */
 int main(int argc, char* argv[]) {
-    tableFormulas.push_back(L"¬A");
-    tableFormulas.push_back(L"A⋀B");
-    tableFormulas.push_back(L"A⋁B");
-    tableFormulas.push_back(L"A⊕B");
-    tableFormulas.push_back(L"A→B");
-    tableFormulas.push_back(L"A↔B");
-    showTable();
+    tableFormulas.push_back(L"(P+Q)*(~P*~Q)");
+    tableFormulas.push_back(L"(P<->Q)->(~P<->~Q)");
+    tableFormulas.push_back(L"((P+Q)->(~P^R))===(P*R)");
+    tableFormulas.push_back(L"((P->R)->Q)<->(P->(Q->R))");
+    showTable();tableFormulas.clear();
+    tableFormulas.push_back(L"(P⋁ Q)⋀ (¬P⋀ ¬Q)");
+    tableFormulas.push_back(L"(P↔Q)→(¬P↔¬Q)");
+    tableFormulas.push_back(L"((P⋁Q)→(¬P⊕R))≡(P⋀R)");
+    tableFormulas.push_back(L"((P→R)→Q)↔(P→(Q→R))");
+    showTable();tableFormulas.clear();
     return 0;
 }
