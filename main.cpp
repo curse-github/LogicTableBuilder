@@ -216,15 +216,11 @@ void printLine() {
     }
     cout << endl;
 }
-void removeStrings(wstring& input) {
+wstring removeSpaces(wstring input) {
     input.erase(std::remove(input.begin(), input.end(),L' '), input.end());
+    return input;
 }
 
-void setPrintColorRed(){ SetConsoleTextAttribute(GetStdHandle((DWORD)-11),FOREGROUND_RED); }
-void setPrintColorGreen(){ SetConsoleTextAttribute(GetStdHandle((DWORD)-11),FOREGROUND_GREEN); }
-void setPrintColorBlue(){ SetConsoleTextAttribute(GetStdHandle((DWORD)-11),FOREGROUND_BLUE); }
-void setPrintColorCyan(){ SetConsoleTextAttribute(GetStdHandle((DWORD)-11),FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY); }
-void setPrintColorNone(){ SetConsoleTextAttribute(GetStdHandle((DWORD)-11), FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY); }
 void showTable() {
     // used for converting the utf-8 strings to regular, so it can be printed
     wstring_convert<codecvt_utf8<wchar_t>, wchar_t> converter;
@@ -232,8 +228,7 @@ void showTable() {
     // evaluate the formulas to get the list of variables in them
     size_t numFormulas = tableFormulas.size();
     for (size_t i = 0; i < numFormulas; i++) {
-        removeStrings(tableFormulas[i]);
-        eval(tableFormulas[i]);
+        eval(removeSpaces(tableFormulas[i]));
     }
     size_t numVariables = variables.size();
     // print seperating line
@@ -242,7 +237,7 @@ void showTable() {
     cout << '|';
     for (short i = 0; i < numVariables; i++) { setPrintColorBlue(); cout << ' ' << variables[i]; setPrintColorNone(); cout << " |"; }
     for (size_t i = 0; i < numFormulas; i++) {
-        setPrintColorBlue(); wprintf(L" %S ",tableFormulas[i].c_str()); setPrintColorNone(); cout << '|';
+        setPrintColorBlue(); cout << ' ' << converter.to_bytes(tableFormulas[i].c_str()) << ' '; setPrintColorNone(); cout << '|';
     }
     cout << endl;
     // print seperating line
@@ -262,7 +257,7 @@ void showTable() {
         // print the columns for each formula
         for (size_t j = 0; j < numFormulas; j++) {
             // evaluate the formula after setting the values of the variables
-            char returnVal = eval(tableFormulas[j]);
+            char returnVal = eval(removeSpaces(tableFormulas[j]));
             // print value as T or F
             if (returnVal=='T') setPrintColorGreen();else if (returnVal=='F') setPrintColorRed(); else setPrintColorCyan();
             cout << ' ' << (((returnVal=='T')||(returnVal=='F'))?returnVal:'E'); setPrintColorNone();cout << " ";
@@ -296,9 +291,9 @@ int main(int argc, char* argv[]) {
     tableFormulas.push_back(L"((P->R)->Q)<->(P->(Q->R))");
     showTable();tableFormulas.clear();
     tableFormulas.push_back(L"(P⋁ Q)⋀ (¬P⋀ ¬Q)");
-    tableFormulas.push_back(L"(P↔Q)→(¬P↔¬Q)");
-    tableFormulas.push_back(L"((P⋁Q)→(¬P⊕R))≡(P⋀R)");
-    tableFormulas.push_back(L"((P→R)→Q)↔(P→(Q→R))");
+    tableFormulas.push_back(L"(P↔ Q)→ (¬P↔ ¬Q)");
+    tableFormulas.push_back(L"((P⋁ Q)→ (¬P⊕ R))≡ (P⋀ R)");
+    tableFormulas.push_back(L"((P→ R)→ Q)↔ (P→ (Q→ R))");
     showTable();tableFormulas.clear();
     return 0;
 }
