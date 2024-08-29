@@ -3,6 +3,11 @@ using std::wstring_convert, std::codecvt_utf8, std::wstring;
 using std::cout, std::endl;
 using std::vector;
 
+wstring removeSpaces(wstring input) {
+    input.erase(std::remove(input.begin(), input.end(),L' '), input.end());
+    return input;
+}
+
 #pragma region variable handling
 char values[26] = {
     'F','F','F','F','F','F','F','F','F','F','F','F','F',
@@ -50,7 +55,7 @@ char exclusiveOr(const char& A, const char& B) {
 }
 // A → B
 char implication(const char& A, const char& B) {
-    if ((getVar(A)=='T') || (getVar(B)=='F')) return 'F';
+    if ((getVar(A)=='T') && (getVar(B)=='F')) return 'F';
     return 'T';
 }
 // A ↔ B
@@ -77,15 +82,15 @@ operatorType getOperator(const wchar_t* input) {
     switch(input[0]) {
         case L'¬': return {1,1};
         case L'~': return {1,1};
-        //case L'!': return {1,1};
+        case L'!': return {1,1};
 
         case L'⋀': return {2,1};
         case L'.': return {2,1};
-        //case L'&': return {2,1};
+        case L'&': return {2,1};
         case L'*': return {2,1};
 
         case L'⋁': return {3,1};
-        //case L'|': return {3,1};
+        case L'|': return {3,1};
         case L'+': return {3,1};
 
         case L'⊕': return {4,1};
@@ -104,6 +109,7 @@ operatorType getOperator(const wchar_t* input) {
     }
 }
 #pragma endregion operation parsing
+
 
 int getEndingParenthesisIndex(const wchar_t* input,size_t size) {
     short numParenthasis = 0;
@@ -190,6 +196,9 @@ char eval(const wchar_t* inputStr, size_t size) {
     if ((operatorThing.type!=-1)&&(operatorThing.type!=1)) {
         index+=operatorThing.len;
         B=eval(inputStr+index,size-index);
+        //wstring_convert<codecvt_utf8<wchar_t>, wchar_t> converter;
+        //cout << endl << A << converter.to_bytes((inputStr+index-operatorThing.len)[0]) << ' ' << B << endl;
+        //cout << "operator type: " << (int)operatorThing.type << endl;
         switch(operatorThing.type) {
             case 2: return conjunction(A,B);
             case 3: return disjunction(A,B);
@@ -203,6 +212,10 @@ char eval(const wchar_t* inputStr, size_t size) {
 char eval(const wstring input) { return eval(input.c_str(),input.size()); }
 
 vector<wstring> tableFormulas;
+vector<bool> isFormulaTautology;
+vector<bool> isFormulaContradiction;
+vector<bool> isFormulaError;
+
 void printLine() {
     size_t numFormulas = tableFormulas.size();
     size_t numVariables = variables.size();
@@ -216,28 +229,32 @@ void printLine() {
     }
     cout << endl;
 }
-wstring removeSpaces(wstring input) {
-    input.erase(std::remove(input.begin(), input.end(),L' '), input.end());
-    return input;
-}
 
 void showTable() {
     // used for converting the utf-8 strings to regular, so it can be printed
     wstring_convert<codecvt_utf8<wchar_t>, wchar_t> converter;
     
-    // evaluate the formulas to get the list of variables in them
+    // evaluate each formula to get the list of variables in them
     size_t numFormulas = tableFormulas.size();
     for (size_t i = 0; i < numFormulas; i++) {
         eval(removeSpaces(tableFormulas[i]));
+        // and initialize the vectors containing data on if each expression is always true or always false
+        isFormulaTautology.push_back(true);
+        isFormulaContradiction.push_back(true);
+        isFormulaError.push_back(false);
     }
     size_t numVariables = variables.size();
     // print seperating line
     printLine();
     // print table header of each variable and formula
     cout << '|';
-    for (short i = 0; i < numVariables; i++) { setPrintColorBlue(); cout << ' ' << variables[i]; setPrintColorNone(); cout << " |"; }
+    for (short i = 0; i < numVariables; i++) {
+        setPrintColorBlue(); cout << ' ' << variables[i];
+        setPrintColorNone(); cout << " |";
+    }
     for (size_t i = 0; i < numFormulas; i++) {
-        setPrintColorBlue(); cout << ' ' << converter.to_bytes(tableFormulas[i].c_str()) << ' '; setPrintColorNone(); cout << '|';
+        setPrintColorBlue(); cout << ' ' << converter.to_bytes(tableFormulas[i].c_str());
+        setPrintColorNone(); cout << " |";
     }
     cout << endl;
     // print seperating line
@@ -248,9 +265,9 @@ void showTable() {
         // print the columns for each variable
         for (short j = numVariables; j > 0; j--) {
             // get each bit of the i variable to get a true or false value for each variable
-            bool val = (i&(1<<(numVariables-j)))!=0;
+            bool val = (i&(1<<(j-1)))!=0;
             // set the value
-            setVar(variables[j-1],val);
+            setVar(variables[numVariables-j],val);
             // print the value as T or F
             if (val) setPrintColorGreen();else setPrintColorRed(); cout << ' ' << (val?'T':'F'); setPrintColorNone();cout << " |";
         }
@@ -259,41 +276,70 @@ void showTable() {
             // evaluate the formula after setting the values of the variables
             char returnVal = eval(removeSpaces(tableFormulas[j]));
             // print value as T or F
-            if (returnVal=='T') setPrintColorGreen();else if (returnVal=='F') setPrintColorRed(); else setPrintColorCyan();
-            cout << ' ' << (((returnVal=='T')||(returnVal=='F'))?returnVal:'E'); setPrintColorNone();cout << " ";
+            cout << ' ';
+            if (returnVal=='T') { setPrintColorGreen(); cout << "T "; isFormulaContradiction[j]=false; }
+            else if (returnVal=='F') { setPrintColorRed(); cout << "F "; isFormulaTautology[j]=false; }
+            else { setPrintColorCyan(); cout << "E "; isFormulaError[j]=true; }
+            setPrintColorNone();
             // print more spaces to make the vertical lines line up
-            for (size_t k = 0; k < tableFormulas[j].size()-1; k++) {
-                cout << ' ';
-            }
+            for (size_t k = 0; k < tableFormulas[j].size()-1; k++) cout << ' ';
             cout << '|';
         }
         cout << endl;
     }
     // seperating line
     printLine();
+    // find length of longest formula, to be able to line them up
+    size_t longestFormula = 0;
+    for (size_t i = 0; i < numFormulas; i++) {
+        size_t formulaLen = tableFormulas[i].size();
+        if (formulaLen>longestFormula) longestFormula=formulaLen;
+    }
+    
+    // print if each expression is a tautology, contradiction, or contingency
+    for (size_t i = 0; i < numFormulas; i++) {
+        size_t formulaLen = tableFormulas[i].size();
+        setPrintColorBlue();cout << converter.to_bytes(tableFormulas[i].c_str());
+        // line up each colon by adding spaces
+        for (size_t i = formulaLen; i < longestFormula; i++) cout << ' ';
+        setPrintColorNone(); cout << ": ";
+        if (isFormulaError[i]) { setPrintColorRed(); cout << "Error in statement"; }
+        else if (isFormulaTautology[i]) cout << "Tautology (Always true)";
+        else if (isFormulaContradiction[i]) cout << "Contradiction (Always false)";
+        else cout << "Contingency.";
+        cout << endl;
+    }
     // clear variables list and add last end line
-    cout << endl;
     variables.clear();
+    tableFormulas.clear();
+    isFormulaTautology.clear();
+    isFormulaContradiction.clear();
+    isFormulaError.clear();
 }
 
 /*
 1: negation (not): '¬', '~', '!'
-2: conjunction (and): '⋀', '.', '&'
-3: disjunction (or): '⋁', '|'
+2: conjunction (and): '⋀', '.', '&', '*'
+3: disjunction (or): '⋁', '|', '+'
 4: exclusive or (xor): '⊕', '^'
-5: implication: '→', '⊃'
-6: iff: '↔', '≡'
+5: implication: '→', '⊃', '->'
+6: iff: '↔', '≡', '<->', '==='
 */
 int main(int argc, char* argv[]) {
-    tableFormulas.push_back(L"(P+Q)*(~P*~Q)");
+    /*tableFormulas.push_back(L"(P+Q)*(~P*~Q)");
     tableFormulas.push_back(L"(P<->Q)->(~P<->~Q)");
     tableFormulas.push_back(L"((P+Q)->(~P^R))===(P*R)");
     tableFormulas.push_back(L"((P->R)->Q)<->(P->(Q->R))");
-    showTable();tableFormulas.clear();
-    tableFormulas.push_back(L"(P⋁ Q)⋀ (¬P⋀ ¬Q)");
-    tableFormulas.push_back(L"(P↔ Q)→ (¬P↔ ¬Q)");
-    tableFormulas.push_back(L"((P⋁ Q)→ (¬P⊕ R))≡ (P⋀ R)");
-    tableFormulas.push_back(L"((P→ R)→ Q)↔ (P→ (Q→ R))");
-    showTable();tableFormulas.clear();
+    showTable();*/
+
+    //tableFormulas.push_back(L"(P⋁ Q)⋀ (¬P⋀ ¬Q)");
+    //tableFormulas.push_back(L"(P↔ Q)→ (¬P↔ ¬Q)");
+    tableFormulas.push_back(L"P");
+    tableFormulas.push_back(L"Q");
+    tableFormulas.push_back(L"~P^R");
+    tableFormulas.push_back(L"(P|Q)&(~P^R)");
+    tableFormulas.push_back(L"((P⋁ Q)⋀ (¬P⊕ R))≡ (P⋀ R)");
+    //tableFormulas.push_back(L"((P→ R)→ Q)↔ (P→ (Q→ R))");
+    showTable();
     return 0;
 }
