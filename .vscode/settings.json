@@ -49,6 +49,20 @@
         "typeinfo": "cpp",
         "xutility": "cpp",
         "xstring": "cpp",
-        "xlocbuf": "cpp"
-    }
+        "xlocbuf": "cpp",
+        "cstring": "cpp",
+        "ios": "cpp",
+        "xfacet": "cpp",
+        "xiosbase": "cpp",
+        "xlocale": "cpp",
+        "xlocinfo": "cpp",
+        "xlocmes": "cpp",
+        "xlocmon": "cpp",
+        "xlocnum": "cpp",
+        "xloctime": "cpp",
+        "xmemory": "cpp",
+        "xstddef": "cpp",
+        "xtr1common": "cpp"
+    },
+    "C_Cpp.errorSquiggles": "disabled"
 }

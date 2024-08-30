@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
-make
-./main.out
+make p01.out
+./p01.out
