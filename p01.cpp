@@ -2,75 +2,72 @@
 #include <string>
 #include <locale>
 #include <codecvt>
-#include <vector>
 #include <algorithm>
 #include <cmath>
 #include <vector>
 #ifdef _WIN32
     #include <windows.h>
-    void setPrintColorRed(){ SetConsoleTextAttribute(GetStdHandle((DWORD)-11),FOREGROUND_RED); }
-    void setPrintColorGreen(){ SetConsoleTextAttribute(GetStdHandle((DWORD)-11),FOREGROUND_GREEN); }
-    void setPrintColorBlue(){ SetConsoleTextAttribute(GetStdHandle((DWORD)-11),FOREGROUND_BLUE); }
-    void setPrintColorCyan(){ SetConsoleTextAttribute(GetStdHandle((DWORD)-11),FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY); }
-    void setPrintColorNone(){ SetConsoleTextAttribute(GetStdHandle((DWORD)-11), FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY); }
-#else
-    void setPrintColorRed(){ std::cout << "\033[31m";}
-    void setPrintColorGreen(){ std::cout << "\033[32m";}
-    void setPrintColorBlue(){ std::cout << "\033[34m";}
-    void setPrintColorCyan(){ std::cout << "\033[36m";}
-    void setPrintColorNone(){ std::cout << "\033[37m";}
 #endif
 using std::cout, std::endl, std::vector, std::wstring, std::wstring_convert, std::codecvt_utf8;
-wstring removeSpaces(wstring input) {
+#pragma region helping functions
+enum class Color {Red=0,Green=1,Blue=2,Cyan=3,White=4};
+void setPrintColor(Color color) {// function that sets the console output color based on the enum passed in
+#ifdef _WIN32
+    SetConsoleOutputCP(CP_UTF8);
+    const int codes[5] = {FOREGROUND_RED, FOREGROUND_GREEN, FOREGROUND_BLUE, FOREGROUND_GREEN|FOREGROUND_BLUE|FOREGROUND_INTENSITY, FOREGROUND_RED|FOREGROUND_GREEN|FOREGROUND_BLUE|FOREGROUND_INTENSITY};
+    SetConsoleTextAttribute(GetStdHandle((DWORD)-11),codes[(int)color]);
+#else
+    const char* codes[5] = {"\033[31m","\033[32m","\033[34m","\033[36m","\033[37m"};
+    cout << codes[(int)color];
+#endif
+}
+wstring removeSpaces(wstring input) {// function to return a copy of the input string without strings
     input.erase(std::remove(input.begin(), input.end(),L' '), input.end());
     return input;
 }
-
-vector<char> variables;// list of 
-long variableValues = 0;// bitmap for the values of each variable
+int getEndingCharIndex(wstring input, size_t size, size_t startIndex, wchar_t startingChar, wchar_t endingChar) {// give the input information find the next ending parenthasis, bracket, or brace
+    int count = 0;
+    for (size_t j = startIndex; j < size; j++) {
+        if (input[j]==startingChar) count++;
+        else if (input[j]==endingChar) {
+            if (count==0) return j;
+            else count--;
+        }
+    }
+    return -1;
+}
+#pragma endregion helping functions
+vector<char> variables;// list of single character variable names
+long variableValues = 0;// bitmap for the values of each variable bits 0-25 are 'a'-'z' and bits 26-51 are 'A'-'Z'
+vector<wstring> tableFormulas;// holds each formula the the user inputs
+vector<bool> isFormulaTautology;// holds whether each valud alwasy evaluated to true
+vector<bool> isFormulaContradiction;// holds whether each formula always evaluated to false
+vector<bool> isFormulaError;// holds wether each formula contained an error and is invalid
+wstring_convert<codecvt_utf8<wchar_t>, wchar_t> converter;// converts from std::wstring to std::string or wchar_t to char or whatever so you can print it
+#pragma region evaluation functions
 char getVar(const char& A) {
     if ((A=='T')||(A=='1')) return 'T'; else if ((A=='F')||(A=='0')) return 'F';
-    if (std::find(variables.cbegin(),variables.cend(),A)==variables.cend()) variables.push_back(A);// add the variables to the list if it is not already there
-    return ((variableValues&(1<<(A-'A')))==0)?'F':'T';
+    else if (std::find(variables.cbegin(),variables.cend(),A)==variables.cend()) variables.push_back(A);// add the variables to the list if it is not already there
+    else if ((A>='A')&&(A<='Z')) return ((variableValues&(1<<(A-'A'+26)))==0)?'F':'T';
+    else if ((A>='a')&&(A<='z')) return ((variableValues&(1<<(A-'a')))==0)?'F':'T';
+    return 'E';
 }
 void setVar(const char& A, const bool& value) {
-    if (value) variableValues|=(1<<(A-'A')); else variableValues&=~(1<<(A-'A'));
+    if ((A=='T')||(A=='F')||(A=='0')||(A=='1')) return;
+    if ((A>='A')&&(A<='Z')) {
+        if (value) variableValues|=(1<<(A-'A'+26)); else variableValues&=~(1<<(A-'A'+26));
+    } else if ((A>='a')&&(A<='z')) {
+        if (value) variableValues|=(1<<(A-'a')); else variableValues&=~(1<<(A-'a'));
+    }
 }
-wstring_convert<codecvt_utf8<wchar_t>, wchar_t> converter;
 char eval(const wstring input) {
     size_t inputSize = input.size();
     if (inputSize==1) return getVar(input[0]);
     for (size_t i = 0; i < inputSize; i++) {
         if ((input[i]=='(')||(input[i]=='[')||(input[i]=='{')) {
-            int parenthasisCount = 0;
-            wstring tmpStr = input.substr(0,i);
-            int endingIndex = -1;
-            if (input[i]=='(') {
-                for (size_t j = i+1; j < inputSize; j++) {
-                    if (input[j]=='(') parenthasisCount++;
-                    else if (input[j]==')') {
-                        if (parenthasisCount==0) { endingIndex=j; break; }
-                        else parenthasisCount--;
-                    }
-                }
-            } else if (input[i]=='[') {
-                for (size_t j = i+1; j < inputSize; j++) {
-                    if (input[j]=='[') parenthasisCount++;
-                    else if (input[j]==']') {
-                        if (parenthasisCount==0) { endingIndex=j; break; }
-                        else parenthasisCount--;
-                    }
-                }
-            } else if (input[i]=='{') {
-                for (size_t j = i+1; j < inputSize; j++) {
-                    if (input[j]=='{') parenthasisCount++;
-                    else if (input[j]=='}') {
-                        if (parenthasisCount==0) { endingIndex=j; break; }
-                        else parenthasisCount--;
-                    }
-                }
-            }
+            int endingIndex = getEndingCharIndex(input,inputSize,i+1,input[i],(input[i]==L'(')?L')':((input[i]==L'[')?L']':L'}'));
             if (endingIndex==-1) return 'E';// did not find end
+            wstring tmpStr = input.substr(0,i);
             tmpStr.push_back((wchar_t)eval(input.substr(i+1,endingIndex-i-1)));
             return eval(tmpStr+input.substr(endingIndex+1,inputSize-(i-endingIndex)-1));
         }
@@ -105,33 +102,27 @@ char eval(const wstring input) {
         }
     }
     for (size_t i = 0; i < inputSize; i++) {// parse implication
-        if ((input[i]==L'→')||(input[i]==L'⊃')){
-            tmpStr+=input.substr(0,i-1);
-            tmpStr.push_back(((getVar(input[i-1])=='T')&&(getVar(input[i+1])=='F'))?'F':'T');
-            return eval(tmpStr+input.substr(i+2,inputSize-i-2));
-        } else if ((input[i]=='-')&&(input[i-1]!='<')&&(input[i+1]=='>')) {
-            tmpStr+=input.substr(0,i-1);
-            tmpStr.push_back(((getVar(input[i-1])=='T')&&(getVar(input[i+2])=='F'))?'F':'T');
-            return eval(tmpStr+input.substr(i+3,inputSize-i-3));
-        }
+        int len = 0;
+        if ((input[i]==L'→')||(input[i]==L'⊃')) len=1;
+        else if ((input[i]=='-')&&(input[i-1]!='<')&&(input[i+1]=='>')) len=2;
+        else continue;
+        tmpStr+=input.substr(0,i-1);
+        tmpStr.push_back(((getVar(input[i-1])=='T')&&(getVar(input[i+len])=='F'))?'F':'T');
+        return eval(tmpStr+input.substr(i+1+len,inputSize-i-1-len));
     }
     for (size_t i = 0; i < inputSize; i++) {// parse iff and equivilence operators
-        if ((input[i]==L'↔')||(input[i]==L'≡')) {
-            tmpStr+=input.substr(0,i-1);
-            tmpStr.push_back((getVar(input[i-1])==getVar(input[i+1]))?'T':'F');
-            return eval(tmpStr+input.substr(i+2,inputSize-i-2));
-        } else if (((input[i]=='<')&&(input[i+1]=='-')&&(input[i+2]=='>')) || ((input[i]=='=')&&(input[i+1]=='=')&&(input[i+2]=='='))) {
-            tmpStr+=input.substr(0,i-1);
-            tmpStr.push_back((getVar(input[i-1])==getVar(input[i+3]))?'T':'F');
-            return eval(tmpStr+input.substr(i+4,inputSize-i-4));
-        }
+        int len = 0;
+        if ((input[i]==L'↔')||(input[i]==L'≡')) len=1;
+        else if (((input[i]=='<')&&(input[i+1]=='-')&&(input[i+2]=='>')) || ((input[i]=='=')&&(input[i+1]=='=')&&(input[i+2]=='='))) len=3;
+        else continue;
+        tmpStr+=input.substr(0,i-1);
+        tmpStr.push_back((getVar(input[i-1])==getVar(input[i+len]))?'T':'F');
+        return eval(tmpStr+input.substr(i+1+len,inputSize-i-1-len));
     }
     return 'E';
 }
-vector<wstring> tableFormulas;
-vector<bool> isFormulaTautology;
-vector<bool> isFormulaContradiction;
-vector<bool> isFormulaError;
+#pragma endregion evaluation functions
+#pragma region table printing functions
 void printLine() {
     size_t numFormulas = tableFormulas.size();
     size_t numVariables = variables.size();// print dashes for the width of the variable columns
@@ -140,68 +131,54 @@ void printLine() {
         cout << "---"; for (short j = 0; j < static_cast<short>(tableFormulas[i].size()); j++) cout << '-';
     }
 }
-void printValue(char val) {
-    if (val=='T') { setPrintColorGreen(); cout << " T "; }// print the value as T or F
-    else if (val=='F') { setPrintColorRed(); cout << " F "; }
-    else { setPrintColorCyan(); cout << " E "; }
-    setPrintColorNone();
+void printFormula(wstring formula) {// print the value as T, F, or E
+    setPrintColor(Color::Blue); cout << ' ' << converter.to_bytes(formula); setPrintColor(Color::White);
+}
+void printValue(char val, int numEndingSpaces) {// print the value as T, F, or E
+    if (val=='T') { setPrintColor(Color::Green); cout << " T "; setPrintColor(Color::White); }
+    else if (val=='F') { setPrintColor(Color::Red); cout << " F "; setPrintColor(Color::White); }
+    else { setPrintColor(Color::Cyan); cout << " E "; setPrintColor(Color::White); }
+    for (size_t i = 0; i < numEndingSpaces; i++) cout << ' ';
+    cout << '|';
 }
 void showTable() {
-    #ifdef _WIN32
-        SetConsoleOutputCP(CP_UTF8);
-    #endif
     size_t numFormulas = tableFormulas.size();
+    size_t longestFormula = 0;
     for (size_t i = 0; i < numFormulas; i++) {// evaluate each formula to get the list of variables in them
         eval(removeSpaces(tableFormulas[i]));
         isFormulaTautology.push_back(true);// and initialize the vectors containing data on if each expression is always true or always false
         isFormulaContradiction.push_back(true);
         isFormulaError.push_back(false);
+        if (tableFormulas[i].size()>longestFormula) longestFormula=tableFormulas[i].size();
     }
     size_t numVariables = variables.size();
-    printLine();cout << endl;// print seperating line
+    printLine(); cout << endl;// print seperating line
     cout << '|';// print table header of each variable and formula
-    for (short i = 0; i < numVariables; i++) {
-        setPrintColorBlue(); cout << ' ' << variables[i];
-        setPrintColorNone(); cout << " |";
-    }
-    for (size_t i = 0; i < numFormulas; i++) {
-        setPrintColorBlue(); cout << ' ' << converter.to_bytes(tableFormulas[i].c_str());
-        setPrintColorNone(); cout << " |";
-    }
-    cout << endl;
-    printLine();cout << endl;// print seperating line
+    for (size_t i = 0; i < numVariables; i++) { printFormula(wstring(1,variables[i])); cout << " |"; }
+    for (size_t i = 0; i < numFormulas; i++) { printFormula(tableFormulas[i]); cout << " |"; }
+    cout << endl; printLine();cout << endl;// print seperating line
     for (int i = (1<<numVariables)-1; i >= 0 ; i--) {// print body of the table
         cout << "|";// print the columns for each variable
         for (short j = numVariables; j > 0; j--) {
             bool val = (i&(1<<(j-1)))!=0;// get individual bits from the i variable for the T or F for each variable
             setVar(variables[numVariables-j],val);// set the value
-            printValue(val?'T':'F');cout << '|';
+            printValue(val?'T':'F',0);
         }
         for (size_t j = 0; j < numFormulas; j++) {// print the columns for each formula
             char returnVal = eval(removeSpaces(tableFormulas[j]));// evaluate the formula after setting each variables
-            if (returnVal=='T') { setPrintColorGreen(); isFormulaContradiction[j]=false; }// print value as T or F
-            else if (returnVal=='F') { setPrintColorRed(); isFormulaTautology[j]=false; }
-            else { setPrintColorCyan(); cout << "E "; isFormulaError[j]=true; }
-            cout << ' ' << returnVal << ' ';
-            for (size_t k = 0; k < tableFormulas[j].size()-1; k++) cout << ' ';// print more spaces to make the vertical lines line up
-            setPrintColorNone();cout << '|';
+            printValue(returnVal,tableFormulas[j].size()-1);// print value
+            if (returnVal=='T') isFormulaContradiction[j]=false; else if (returnVal=='F') isFormulaTautology[j]=false; else isFormulaError[j]=true;
         }
         cout << endl;
     }
-    printLine();cout << endl;// seperating line
-    size_t longestFormula = 0;
-    for (size_t i = 0; i < numFormulas; i++) {// find length of longest formula, to be able to line them up
-        size_t formulaLen = tableFormulas[i].size();
-        if (formulaLen>longestFormula) longestFormula=formulaLen;
-    }
+    printLine(); cout << endl;// seperating line
     for (size_t i = 0; i < numFormulas; i++) {// print if each expression is a tautology, contradiction, or contingency
-        size_t formulaLen = tableFormulas[i].size();
-        setPrintColorBlue(); cout << converter.to_bytes(tableFormulas[i].c_str());
-        for (size_t i = formulaLen; i < longestFormula; i++) cout << ' ';// line up each colon by adding spaces
-        setPrintColorNone(); cout << ": ";
-        if (isFormulaError[i]) { setPrintColorRed(); cout << "Error in statement" << endl; setPrintColorNone(); }
-        else if (isFormulaTautology[i]) cout << "Tautology (Always true)" << endl;
-        else if (isFormulaContradiction[i]) cout << "Contradiction (Always false)" << endl;
+        printFormula(tableFormulas[i]);
+        for (size_t j = tableFormulas[i].size(); j < longestFormula; j++) cout << ' ';// line up each colon by adding spaces
+        cout << ": ";
+        if (isFormulaError[i]) { setPrintColor(Color::Red); cout << "Error in statement." << endl; setPrintColor(Color::White); }
+        else if (isFormulaTautology[i]) { setPrintColor(Color::Green); cout << "Tautology." << endl; setPrintColor(Color::White); }
+        else if (isFormulaContradiction[i]) { setPrintColor(Color::Red); cout << "Contradiction." << endl; setPrintColor(Color::White); }
         else cout << "Contingency." << endl;
     }
     cout << endl;
@@ -211,22 +188,12 @@ void showTable() {
     isFormulaContradiction.clear();
     isFormulaError.clear();
 }
+#pragma endregion table printing functions
 int main(int argc, char* argv[]) {
-    tableFormulas.push_back(L"P+Q");
-    tableFormulas.push_back(L"~P*~Q");
-    tableFormulas.push_back(L"(P+Q)*(~P*~Q)");
-    showTable();
-    tableFormulas.push_back(L"P<->Q");
-    tableFormulas.push_back(L"~P<->~Q");
-    tableFormulas.push_back(L"(P<->Q)->(~P<->~Q)");
-    showTable();
-    tableFormulas.push_back(L"(P+Q)*(~P^R)");
-    tableFormulas.push_back(L"P*R");
-    tableFormulas.push_back(L"((P+Q)*(~P^R))===(P*R)");
-    showTable();
-    tableFormulas.push_back(L"(P->R)->Q");
-    tableFormulas.push_back(L"P->(Q->R)");
-    tableFormulas.push_back(L"((P->R)->Q)<->(P->(Q->R))");
+    tableFormulas.push_back(L"(p+q)*(~p*~q)");
+    tableFormulas.push_back(L"(p<->q)->(~p<->~q)");
+    tableFormulas.push_back(L"((p+q)*(~p^r))===(p*r)");
+    tableFormulas.push_back(L"((p->r)->q)<->(p->(q->r))");
     showTable();
     return 0;
 }
