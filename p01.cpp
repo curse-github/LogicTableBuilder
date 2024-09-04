@@ -37,6 +37,7 @@ int getEndingCharIndex(wstring input, size_t size, size_t startIndex, wchar_t st
     return -1;
 }
 #pragma endregion helping functions
+
 vector<char> variables;// list of single character variable names
 long variableValues = 0;// bitmap for the values of each variable bits 0-25 are 'a'-'z' and bits 26-51 are 'A'-'Z'
 vector<wstring> tableFormulas;// holds each formula the the user inputs
@@ -44,11 +45,12 @@ vector<bool> isFormulaTautology;// holds whether each valud alwasy evaluated to 
 vector<bool> isFormulaContradiction;// holds whether each formula always evaluated to false
 vector<bool> isFormulaError;// holds wether each formula contained an error and is invalid
 wstring_convert<codecvt_utf8<wchar_t>, wchar_t> converter;// converts from std::wstring to std::string or wchar_t to char or whatever so you can print it
+
 #pragma region evaluation functions
 char getVar(const char& A) {
     if ((A=='T')||(A=='1')) return 'T'; else if ((A=='F')||(A=='0')) return 'F';
     else if (std::find(variables.cbegin(),variables.cend(),A)==variables.cend()) variables.push_back(A);// add the variables to the list if it is not already there
-    else if ((A>='A')&&(A<='Z')) return ((variableValues&(1<<(A-'A'+26)))==0)?'F':'T';
+    if ((A>='A')&&(A<='Z')) return ((variableValues&(1<<(A-'A'+26)))==0)?'F':'T';
     else if ((A>='a')&&(A<='z')) return ((variableValues&(1<<(A-'a')))==0)?'F':'T';
     return 'E';
 }
@@ -72,31 +74,31 @@ char eval(const wstring input) {
             return eval(tmpStr+input.substr(endingIndex+1,inputSize-(i-endingIndex)-1));
         }
     }
-    wstring tmpStr = L"";
     for (size_t i = 0; i < inputSize; i++) {// parse negations
         if ((input[i]==L'¬')||(input[i]=='~')||(input[i]=='!')){
-            tmpStr+=input.substr(0,i);
+            wstring tmpStr = input.substr(0,i);
             tmpStr.push_back((getVar(input[i+1])=='T')?'F':'T');
             return eval(tmpStr+input.substr(i+2,inputSize-i-2));
         }
     }
     for (size_t i = 0; i < inputSize; i++) {// parse conjunctions
         if ((input[i]==L'⋀')||(input[i]=='&')||(input[i]=='.')||(input[i]=='*')){
-            tmpStr+=input.substr(0,i-1);
+            wstring tmpStr = input.substr(0,i-1);
+            getVar(input[i-1]);getVar(input[i+1]);// make sure variables get registered
             tmpStr.push_back(((getVar(input[i-1])=='T')&&(getVar(input[i+1])=='T'))?'T':'F');
             return eval(tmpStr+input.substr(i+2,inputSize-i-2));
         }
     }
     for (size_t i = 0; i < inputSize; i++) {// parse disjunctions
         if ((input[i]==L'⋁')||(input[i]=='|')||(input[i]=='+')){
-            tmpStr+=input.substr(0,i-1);
+            wstring tmpStr = input.substr(0,i-1);
             tmpStr.push_back(((getVar(input[i-1])=='T')||(getVar(input[i+1])=='T'))?'T':'F');
             return eval(tmpStr+input.substr(i+2,inputSize-i-2));
         }
     }
     for (size_t i = 0; i < inputSize; i++) {// parse exclusive or
         if ((input[i]==L'⊕')||(input[i]=='^')){
-            tmpStr+=input.substr(0,i-1);
+            wstring tmpStr = input.substr(0,i-1);
             tmpStr.push_back((getVar(input[i-1])!=getVar(input[i+1]))?'T':'F');
             return eval(tmpStr+input.substr(i+2,inputSize-i-2));
         }
@@ -106,16 +108,26 @@ char eval(const wstring input) {
         if ((input[i]==L'→')||(input[i]==L'⊃')) len=1;
         else if ((input[i]=='-')&&(input[i-1]!='<')&&(input[i+1]=='>')) len=2;
         else continue;
-        tmpStr+=input.substr(0,i-1);
+        getVar(input[i-1]);getVar(input[i+len]);// make sure variables get registered
+        wstring tmpStr = input.substr(0,i-1);
         tmpStr.push_back(((getVar(input[i-1])=='T')&&(getVar(input[i+len])=='F'))?'F':'T');
         return eval(tmpStr+input.substr(i+1+len,inputSize-i-1-len));
     }
-    for (size_t i = 0; i < inputSize; i++) {// parse iff and equivilence operators
+    for (size_t i = 0; i < inputSize; i++) {// parse iff/bi-conditional
         int len = 0;
-        if ((input[i]==L'↔')||(input[i]==L'≡')) len=1;
-        else if (((input[i]=='<')&&(input[i+1]=='-')&&(input[i+2]=='>')) || ((input[i]=='=')&&(input[i+1]=='=')&&(input[i+2]=='='))) len=3;
+        if (input[i]==L'↔') len=1;
+        else if ((input[i]=='<')&&(input[i+1]=='-')&&(input[i+2]=='>')) len=3;
         else continue;
-        tmpStr+=input.substr(0,i-1);
+        wstring tmpStr = input.substr(0,i-1);
+        tmpStr.push_back((getVar(input[i-1])==getVar(input[i+len]))?'T':'F');
+        return eval(tmpStr+input.substr(i+1+len,inputSize-i-1-len));
+    }
+    for (size_t i = 0; i < inputSize; i++) {// parse equivilence/congruency operators
+        int len = 0;
+        if (input[i]==L'≡') len=1;
+        else if ((input[i]=='=')&&(input[i+1]=='=')&&(input[i+2]=='=')) len=3;
+        else continue;
+        wstring tmpStr = input.substr(0,i-1);
         tmpStr.push_back((getVar(input[i-1])==getVar(input[i+len]))?'T':'F');
         return eval(tmpStr+input.substr(i+1+len,inputSize-i-1-len));
     }
@@ -123,10 +135,10 @@ char eval(const wstring input) {
 }
 #pragma endregion evaluation functions
 #pragma region table printing functions
-void printLine() {
+void printLine(bool showingVars) {
     size_t numFormulas = tableFormulas.size();
     size_t numVariables = variables.size();// print dashes for the width of the variable columns
-    cout << '-'; for (short i = numVariables; i > 0; i--) cout << "----";
+    cout << '-'; if (showingVars) for (short i = numVariables; i > 0; i--) cout << "----";
     for (size_t i = 0; i < numFormulas; i++) {// print dashes for the width of the formula columns
         cout << "---"; for (short j = 0; j < static_cast<short>(tableFormulas[i].size()); j++) cout << '-';
     }
@@ -141,7 +153,7 @@ void printValue(char val, int numEndingSpaces) {// print the value as T, F, or E
     for (size_t i = 0; i < numEndingSpaces; i++) cout << ' ';
     cout << '|';
 }
-void showTable() {
+void showTable(bool showVars) {
     size_t numFormulas = tableFormulas.size();
     size_t longestFormula = 0;
     for (size_t i = 0; i < numFormulas; i++) {// evaluate each formula to get the list of variables in them
@@ -152,17 +164,17 @@ void showTable() {
         if (tableFormulas[i].size()>longestFormula) longestFormula=tableFormulas[i].size();
     }
     size_t numVariables = variables.size();
-    printLine(); cout << endl;// print seperating line
+    printLine(showVars); cout << endl;// print seperating line
     cout << '|';// print table header of each variable and formula
-    for (size_t i = 0; i < numVariables; i++) { printFormula(wstring(1,variables[i])); cout << " |"; }
+    if (showVars) for (size_t i = 0; i < numVariables; i++) { printFormula(wstring(1,(wchar_t)variables[i])); cout << " |"; }
     for (size_t i = 0; i < numFormulas; i++) { printFormula(tableFormulas[i]); cout << " |"; }
-    cout << endl; printLine();cout << endl;// print seperating line
+    cout << endl; printLine(showVars);cout << endl;// print seperating line
     for (int i = (1<<numVariables)-1; i >= 0 ; i--) {// print body of the table
         cout << "|";// print the columns for each variable
         for (short j = numVariables; j > 0; j--) {
             bool val = (i&(1<<(j-1)))!=0;// get individual bits from the i variable for the T or F for each variable
             setVar(variables[numVariables-j],val);// set the value
-            printValue(val?'T':'F',0);
+            if (showVars) printValue(val?'T':'F',0);
         }
         for (size_t j = 0; j < numFormulas; j++) {// print the columns for each formula
             char returnVal = eval(removeSpaces(tableFormulas[j]));// evaluate the formula after setting each variables
@@ -171,7 +183,7 @@ void showTable() {
         }
         cout << endl;
     }
-    printLine(); cout << endl;// seperating line
+    printLine(showVars); cout << endl;// seperating line
     for (size_t i = 0; i < numFormulas; i++) {// print if each expression is a tautology, contradiction, or contingency
         printFormula(tableFormulas[i]);
         for (size_t j = tableFormulas[i].size(); j < longestFormula; j++) cout << ' ';// line up each colon by adding spaces
@@ -190,11 +202,84 @@ void showTable() {
 }
 #pragma endregion table printing functions
 int main(int argc, char* argv[]) {
-    tableFormulas.push_back(L"(p+q)*(~p*~q)");
+    //homework problems
+    /*tableFormulas.push_back(L"(p+q)*(~p*~q)");
     tableFormulas.push_back(L"(p<->q)->(~p<->~q)");
     tableFormulas.push_back(L"((p+q)*(~p^r))===(p*r)");
-    tableFormulas.push_back(L"((p->r)->q)<->(p->(q->r))");
-    showTable();
+    tableFormulas.push_back(L"((p->r)->q)<->(p->(q->r))");*/
+
+    //operations
+    tableFormulas.push_back(L"¬P");
+    cout << "negation" << endl;
+    showTable(true);
+    tableFormulas.push_back(L"P⋀ Q");
+    cout << "conjunction" << endl;
+    showTable(true);
+    tableFormulas.push_back(L"P⋁ Q");
+    cout << "disjunction" << endl;
+    showTable(true);
+    tableFormulas.push_back(L"P⊕ Q");
+    cout << "exclusive or" << endl;
+    showTable(true);
+    tableFormulas.push_back(L"P→ Q");
+    cout << "conditional" << endl;
+    showTable(true);
+    tableFormulas.push_back(L"P↔ Q");
+    cout << "bi-conditional" << endl;
+    showTable(true);
+    tableFormulas.push_back(L"P≡ Q");
+    cout << "equivilence" << endl;
+    showTable(true);
+    cout << endl << endl;
+    
+    // identities
+    tableFormulas.push_back(L"p");
+    tableFormulas.push_back(L"p→ q");
+    tableFormulas.push_back(L"q");
+    tableFormulas.push_back(L"((p)⋀ (p→ q))→ (q)");
+    cout << "modus ponens" << endl;
+    showTable(false);
+    
+    tableFormulas.push_back(L"¬q");
+    tableFormulas.push_back(L"p→ q");
+    tableFormulas.push_back(L"¬p");
+    tableFormulas.push_back(L"((¬q)⋀ (p→ q))→ (¬p)");
+    cout << "modus tollens" << endl;
+    showTable(false);
+
+    tableFormulas.push_back(L"p→ q");
+    tableFormulas.push_back(L"q→ r");
+    tableFormulas.push_back(L"p→ r");
+    tableFormulas.push_back(L"((p→ q)⋀ (q→ r))→ (p→ r)");
+    cout << "hypothetical syllogism" << endl;
+    showTable(false);
+
+    tableFormulas.push_back(L"p⋁ q");
+    tableFormulas.push_back(L"¬p");
+    tableFormulas.push_back(L"q");
+    tableFormulas.push_back(L"((p⋁ q)⋀ (¬p))→ (q)");
+    cout << "disjunctive syllogism" << endl;
+    showTable(false);
+
+    tableFormulas.push_back(L"p");
+    tableFormulas.push_back(L"p⋁ q");
+    tableFormulas.push_back(L"(p)→ (p⋁ q)");
+    cout << "addition" << endl;
+    showTable(false);
+
+    tableFormulas.push_back(L"p⋀ q");
+    tableFormulas.push_back(L"p");
+    tableFormulas.push_back(L"(p⋀ q)→ (p)");
+    cout << "simplification" << endl;
+    showTable(false);
+
+    tableFormulas.push_back(L"p⋁ q");
+    tableFormulas.push_back(L"¬p⋁ r");
+    tableFormulas.push_back(L"p⋁ r");
+    tableFormulas.push_back(L"((p⋁ q)⋀ (¬p⋁ r))→ (q⋁ r)");
+    showTable(true);
+    cout << "resolution" << endl;
+
     return 0;
 }
 /*  1: negation (not): '¬', '~', '!'
