@@ -2,13 +2,21 @@
 #include <string>
 #include <algorithm>
 #include <vector>
-#include <windows.h>
 using std::cout, std::endl, std::vector, std::string;
 #pragma region helping functions
+#ifdef _Win32
+#include <windows.h>
 enum class Color {Red=FOREGROUND_RED,Green=FOREGROUND_GREEN,Blue=FOREGROUND_BLUE,Cyan=FOREGROUND_GREEN|FOREGROUND_BLUE|FOREGROUND_INTENSITY,White=FOREGROUND_RED|FOREGROUND_GREEN|FOREGROUND_BLUE|FOREGROUND_INTENSITY};
 void setPrintColor(const Color& color) {// function that sets the console output color based on the enum passed in
+    SetConsoleOutputCP(CP_UTF8);
     SetConsoleTextAttribute(GetStdHandle((DWORD)-11),(int)color);
 }
+#else
+enum class Color {Red=31,Green=32,Blue=34,Cyan=36,White=0};
+void setPrintColor(const Color& color) {// function that sets the console output color based on the enum passed in
+    cout << "\u001b[" << (int)color << 'm';
+}
+#endif
 int getEndingCharIndex(const string& input, const size_t& startIndex, const char& startingChar, const char& endingChar) {// give the input information find the next ending parenthasis, bracket, or brace
     int count = 0;
     for (size_t j = startIndex; j < input.size(); j++) {
@@ -39,11 +47,10 @@ void setVar(const char& A, const bool& value) {
     if (((A>='A')&&(A<='Z'))||(A=='0')||(A=='1')) return;
     if (value) variableValues|=(1<<(A-'a')); else variableValues&=~(1<<(A-'a'));
 }
-string substrCharSubstr(const string& input, const size_t& start1, const size_t& end1, const char& chr, const size_t& start2, const size_t& end2) {
-    cout << input << ": (" << start1 << ", " << end1 << "), (" << start2 << ", " << end2 << ')' << endl;
-    return input.substr(start1,end1)+string(1,chr)+input.substr(start2,end2);
+string substrCharSubstr(string input, const size_t& start1, const size_t& len1, const char& chr, const size_t& start2, const size_t& len2) {
+    return input.substr(start1,len1)+chr+input.substr(start2,len2);
 }
-char eval(const string& input,const string& originalExpression) {
+char eval(string input,string originalExpression) {
     size_t inputSize = input.size();
     if (inputSize==0) return 'E'; else if (inputSize==1) return getVar(input[0]);
     for (size_t i = 0; i < inputSize; i++)
@@ -51,8 +58,7 @@ char eval(const string& input,const string& originalExpression) {
             int endingIndex = getEndingCharIndex(input,i+1,input[i],(input[i]=='(')?')':((input[i]=='[')?']':'}'));
             if (endingIndex==-1) return 'E';// did not find end
             string parenthasisInsides = input.substr(i+1,endingIndex-i-1);
-            cout << "parenthasisInsides: " << parenthasisInsides;
-            if ((originalExpression[0]!='\0')&&(std::find(tableFormulas.cbegin(),tableFormulas.cend(),parenthasisInsides)==tableFormulas.cend())) tableFormulas.insert(std::find(tableFormulas.cbegin(),tableFormulas.cend(),originalExpression), parenthasisInsides);
+            if ((originalExpression[0]!='\0')&&((endingIndex-i-1)>0)&&(std::find(tableFormulas.cbegin(),tableFormulas.cend(),parenthasisInsides)==tableFormulas.cend())) tableFormulas.insert(std::find(tableFormulas.cbegin(),tableFormulas.cend(),originalExpression), parenthasisInsides);
             return eval(substrCharSubstr(input,0,i,eval(parenthasisInsides,parenthasisInsides),endingIndex+1,inputSize-(i-endingIndex)-1),originalExpression);
         }
     for (size_t i = 0; i < inputSize; i++)// parse negations (~)
@@ -89,7 +95,6 @@ void printValue(char val, int numEndingSpaces) {// print the value as T, F, or E
     for (size_t i = 0; i < numEndingSpaces; i++) cout << ' ';
 }
 void showTable() {
-    SetConsoleOutputCP(CP_UTF8);
     for (size_t i = 0; i < tableFormulas.size(); i++) {// evaluate each formula to get the list of variables in them
         eval(tableFormulas[i],tableFormulas[i]);
         isFormulaTautology.push_back(true);// and initialize the vectors containing data on if each expression is always true or always false
