@@ -1,6 +1,6 @@
 @ECHO OFF
-clear
-make p01.exe
-p01.exe
+cls
+make main.exe
+main.exe
 pause
-make cleanWin
+make cleanWinMain
