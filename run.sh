@@ -2,4 +2,4 @@
 clear
 make p01.out
 ./p01.out
-make cleanLinP01
+make cleanLin

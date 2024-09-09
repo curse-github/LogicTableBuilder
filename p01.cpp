@@ -65,53 +65,53 @@ char eval(std::string input,std::string originalExpression) {
     size_t dashI     = input.find('-');// find implication (->)
     size_t lessThanI = input.find('<');// find iff/bi-conditional (<->)
     size_t equalI    = input.find('=');// find equivilence/congruency operators (===)
-    if (tildeI!=std::string::npos)// handle double negatives
-        if (input[tildeI+1]=='~')
-            return eval(input.substr(0,tildeI)+input.substr(tildeI+2),originalExpression);
+    if (tildeI!=std::string::npos)
+        if (input[tildeI+1]=='~')// handle double negatives
+            return eval(input.substr(0,tildeI)  +input.substr(tildeI+2),originalExpression);
         else
-            return eval(input.substr(0,tildeI)+((getVar(input[tildeI+1])=='T')?'F':'T')+input.substr(tildeI+2),originalExpression);
+            return eval(input.substr(0,tildeI)  +((getVar(input[tildeI+1])=='T')?'F':'T')/*------------------------------------------------------------*/+input.substr(tildeI+2)   ,originalExpression);
     if (asteriskI!=std::string::npos)
-        return eval(input.substr(0,asteriskI-1)+(((getVar(input[asteriskI-1])==getVar(input[asteriskI+1]))&&(getVar(input[asteriskI-1])=='T'))?'T':'F')+input.substr(asteriskI+2),originalExpression);
+        return eval(input.substr(0,asteriskI-1) +(((getVar(input[asteriskI-1])==getVar(input[asteriskI+1]))&&(getVar(input[asteriskI-1])=='T'))?'T':'F') +input.substr(asteriskI+2),originalExpression);
     if (plusI!=std::string::npos)
-        return eval(input.substr(0,plusI-1)+(((getVar(input[plusI-1])!=getVar(input[plusI+1]))||(getVar(input[plusI-1])=='T')||(getVar(input[plusI+1])=='T'))?'T':'F')+input.substr(plusI+2),originalExpression);
+        return eval(input.substr(0,plusI-1)     +(((getVar(input[plusI-1])!=getVar(input[plusI+1]))||(getVar(input[plusI-1])=='T'))?'T':'F')/*---------*/+input.substr(plusI+2),originalExpression);
     if (carrotI!=std::string::npos)
-        return eval(input.substr(0,carrotI-1)+((getVar(input[carrotI-1])!=getVar(input[carrotI+1]))?'T':'F')+input.substr(carrotI+2),originalExpression);
+        return eval(input.substr(0,carrotI-1)   +((getVar(input[carrotI-1])!=getVar(input[carrotI+1]))?'T':'F')/*--------------------------------------*/+input.substr(carrotI+2)  ,originalExpression);
     if ((dashI!=std::string::npos)&&(input[dashI-1]!='<')&&(input[dashI+1]=='>'))// check that the character after the '-' is a '>' and the character before is not a '<' and therefor a bi-conditional
-        return eval(input.substr(0,dashI-1)+(((getVar(input[dashI-1])!=getVar(input[dashI+2]))&&(getVar(input[dashI-1])=='T'))?'F':'T')+input.substr(dashI+3),originalExpression);
+        return eval(input.substr(0,dashI-1)     +(((getVar(input[dashI-1])!=getVar(input[dashI+2]))&&(getVar(input[dashI-1])=='T'))?'F':'T')/*---------*/+input.substr(dashI+3)    ,originalExpression);
     if ((lessThanI!=std::string::npos)&&(input[lessThanI+1]=='-')&&(input[lessThanI+2]=='>'))// check that the character after '<' is a '-' and then a '>'
-        return eval(input.substr(0,lessThanI-1)+((getVar(input[lessThanI-1])==getVar(input[lessThanI+3]))?'T':'F')+input.substr(lessThanI+4),originalExpression);
+        return eval(input.substr(0,lessThanI-1) +((getVar(input[lessThanI-1])==getVar(input[lessThanI+3]))?'T':'F')/*----------------------------------*/+input.substr(lessThanI+4),originalExpression);
     if ((equalI!=std::string::npos)&&(input[equalI+1]=='=')&&(input[equalI+2]=='='))// check that the next two characters are '='
-        return eval(input.substr(0,equalI-1)+((getVar(input[equalI-1])==getVar(input[equalI+3]))?'T':'F')+input.substr(equalI+4),originalExpression);
+        return eval(input.substr(0,equalI-1)    +((getVar(input[equalI-1])==getVar(input[equalI+3]))?'T':'F')/*----------------------------------------*/+input.substr(equalI+4)   ,originalExpression);
     return 'E';// if it reaches the end without getting down to a single character, there is an error in the statement
 }
 void printLine(const bool& showingVars) {
-    if (showingVars) for (size_t i = 0; i < variables.size(); i++) std::cout << "----";
+    for (size_t i = 0; (i < variables.size())&&showingVars; i++) std::cout << "----";
     for (size_t i = 0; i < tableFormulas.size(); i++) for(size_t j = 0; j < tableFormulas[i].size()+3; j++) std::cout << '-';
-    std::cout << std::endl;
+    std::cout << '-' << std::endl;
 }
 void printFormula(std::string formula) {// print the value as T, F, or E
-    setPrintColor(Color::Blue); std::cout << ' ' << formula << ' ';
-    setPrintColor(Color::White); std::cout << '|';
+    std::cout << '|'; setPrintColor(Color::Blue); std::cout << ' ' << formula << ' '; setPrintColor(Color::White); 
 }
 void printValue(const char& val, const int& numEndingSpaces) {// print the value as T, F, or E
-    setPrintColor((val=='T') ? Color::Green : ((val=='F') ? (Color::Red) : (Color::Cyan)));
+    std::cout << '|'; setPrintColor((val=='T') ? Color::Green : ((val=='F') ? (Color::Red) : (Color::Cyan)));
     std::cout << ' ' << (((val=='T')||(val=='F'))?val:'E') << ' ';
-    for (size_t i = 0; i < numEndingSpaces; i++) std::cout << ' ';
-    setPrintColor(Color::White); std::cout << '|';
+    for (size_t i = 0; i < numEndingSpaces; i++) std::cout << ' '; setPrintColor(Color::White);
 }
 void showTable(const char* mainFormula, const bool& showVars=true) {
     tableFormulas.push_back(mainFormula);
-    for (size_t i = 0; i < tableFormulas.size(); i++) {// evaluate each formula to get the list of variables in them
-        eval(removeSpaces(tableFormulas[i]),tableFormulas[i]);
-        isFormulaTautology.push_back(true);// initialize std::vectors containing data on if each expression is always true or always false
+    eval(removeSpaces(mainFormula),mainFormula);
+    for (size_t i = 0; i < tableFormulas.size(); i++) {
+        isFormulaTautology.push_back(true);
         isFormulaContradiction.push_back(true);
         isFormulaError.push_back(false);
     }
-    printLine(showVars);
-    if (showVars) for (size_t i = 0; i < variables.size(); i++) printFormula(std::string(1,variables[i]));// print table header of each variable and formula
-    for (size_t i = 0; i < tableFormulas.size(); i++) printFormula(tableFormulas[i]);
-    std::cout << std::endl;
-    printLine(showVars);
+    printLine(showVars);// dash line above table
+    for (size_t i = 0; (i < variables.size())&&showVars; i++)
+        printFormula(std::string(1,variables[i]));// print table header of each variable and formula
+    for (size_t i = 0; i < tableFormulas.size(); i++)
+        printFormula(tableFormulas[i]);
+    std::cout << '|' << std::endl;
+    printLine(showVars);// dash line between vars and values
     for (int i = (1<<variables.size())-1; i >= 0 ; i--) {// print body of the table
         for (short j = variables.size(); j > 0; j--) {
             bool val = (i&(1<<(j-1)))!=0;// get individual bits from the i variable for the T or F for each variable
@@ -125,9 +125,9 @@ void showTable(const char* mainFormula, const bool& showVars=true) {
             else if (returnVal=='F') isFormulaTautology[j]=false;
             else isFormulaError[j]=true;
         }
-        std::cout << std::endl;
+        std::cout << '|' << std::endl;
     }
-    printLine(showVars);
+    printLine(showVars);// dash line at bottom of table
     for (size_t i = 0; i < tableFormulas.size(); i++)// print if each expression is a tautology, contradiction, or contingency
         if (isFormulaError[i])              { setPrintColor(Color::Blue); std::cout << std::endl << ' ' << tableFormulas[i]; setPrintColor(Color::White); std::cout << " has an "; setPrintColor(Color::Cyan);  std::cout << "Error";         setPrintColor(Color::White); std::cout << '.'; }
         else if (isFormulaTautology[i])     { setPrintColor(Color::Blue); std::cout << std::endl << ' ' << tableFormulas[i]; setPrintColor(Color::White); std::cout << " is a ";   setPrintColor(Color::Green); std::cout << "Tautology";     setPrintColor(Color::White); std::cout << '.'; }
