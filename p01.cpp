@@ -48,8 +48,7 @@ void setVar(const char& A, const bool& value) {
 }
 char eval(std::string input,std::string originalExpression) {
     size_t inputSize = input.size();
-    if (inputSize==0) return 'E';
-    else if (inputSize==1) return getVar(input[0]);
+    if (inputSize==1) return getVar(input[0]);
     size_t parenthasisI = input.find_first_of("([{");
     if (parenthasisI!=std::string::npos) {
         int endingIndex = getEndingCharIndex(input,parenthasisI+1,input[parenthasisI],(input[parenthasisI]=='(')?')':((input[parenthasisI]=='[')?']':'}'));
@@ -66,8 +65,11 @@ char eval(std::string input,std::string originalExpression) {
     size_t dashI     = input.find('-');// find implication (->)
     size_t lessThanI = input.find('<');// find iff/bi-conditional (<->)
     size_t equalI    = input.find('=');// find equivilence/congruency operators (===)
-    if (tildeI!=std::string::npos)
-        return eval(input.substr(0,tildeI)+((getVar(input[tildeI+1])=='T')?'F':'T')+input.substr(tildeI+2),originalExpression);
+    if (tildeI!=std::string::npos)// handle double negatives
+        if (input[tildeI+1]=='~')
+            return eval(input.substr(0,tildeI)+input.substr(tildeI+2),originalExpression);
+        else
+            return eval(input.substr(0,tildeI)+((getVar(input[tildeI+1])=='T')?'F':'T')+input.substr(tildeI+2),originalExpression);
     if (asteriskI!=std::string::npos)
         return eval(input.substr(0,asteriskI-1)+(((getVar(input[asteriskI-1])==getVar(input[asteriskI+1]))&&(getVar(input[asteriskI-1])=='T'))?'T':'F')+input.substr(asteriskI+2),originalExpression);
     if (plusI!=std::string::npos)
@@ -82,7 +84,6 @@ char eval(std::string input,std::string originalExpression) {
         return eval(input.substr(0,equalI-1)+((getVar(input[equalI-1])==getVar(input[equalI+3]))?'T':'F')+input.substr(equalI+4),originalExpression);
     return 'E';// if it reaches the end without getting down to a single character, there is an error in the statement
 }
-
 void printLine(const bool& showingVars) {
     if (showingVars) for (size_t i = 0; i < variables.size(); i++) std::cout << "----";
     for (size_t i = 0; i < tableFormulas.size(); i++) for(size_t j = 0; j < tableFormulas[i].size()+3; j++) std::cout << '-';
@@ -139,7 +140,6 @@ void showTable(const char* mainFormula, const bool& showVars=true) {
     isFormulaContradiction.clear();
     isFormulaError.clear();
 }
-
 int main() {
     showTable("(p+q) * (~p*~q)",true);
     showTable("(p<->q) -> (~p<->~q)",true);
