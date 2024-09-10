@@ -127,7 +127,7 @@ void showTable(const char* mainFormula, const bool& showVars=true) {
     isFormulaContradiction.clear();
 }
 int main() {
-    showTable("(p+q) * (~pq*~q)",true);
+    showTable("(p+q) * (~p*~q)",true);
     showTable("(p<->q) -> (~p<->~q)",true);
     showTable("(p+q)*(~p^r) === (p*r)",true);
     showTable("[(p->r)->q] <-> [p->(q->r)]",true);
