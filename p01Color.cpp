@@ -2,6 +2,19 @@
 #include <string>
 #include <algorithm>
 #include <vector>
+#ifdef _WIN32
+    #include <windows.h>
+    enum class Color {Red=FOREGROUND_RED,Green=FOREGROUND_GREEN,Blue=FOREGROUND_BLUE,Cyan=FOREGROUND_GREEN|FOREGROUND_BLUE|FOREGROUND_INTENSITY,White=FOREGROUND_RED|FOREGROUND_GREEN|FOREGROUND_BLUE|FOREGROUND_INTENSITY};
+    void setPrintColor(const Color& color) {// function that sets the console output color based on the enum passed in
+        SetConsoleOutputCP(CP_UTF8);
+        SetConsoleTextAttribute(GetStdHandle((DWORD)-11),(int)color);
+    }
+#else
+    enum class Color {Red=31,Green=32,Blue=34,Cyan=36,White=0};
+    void setPrintColor(const Color& color) {// function that sets the console output color based on the enum passed in
+        std::cout << "\u001b[" << (int)color << 'm';
+    }
+#endif
 int getEndingCharIndex(const std::string& input, const size_t& startIndex, const char& startingChar, const char& endingChar) {// give the input information find the next ending parenthasis, bracket, or brace
     int count = 0;
     for (size_t j = startIndex; j < input.size(); j++)
@@ -77,13 +90,13 @@ void printLine(const bool& showingVars) {
     std::cout << '-' << std::endl;
 }
 void printFormula(std::string formula) {// print the value as T, F, or E
-    std::cout << '|' << ' ' << formula << ' ';
+    std::cout << '|'; setPrintColor(Color::Blue); std::cout << ' ' << formula << ' '; setPrintColor(Color::White); 
 }
 void printValue(const char& val, const int& numEndingSpaces) {// print the value as T, F, or E
-    std::cout << '|';
+    std::cout << '|'; setPrintColor((val=='T') ? Color::Green : ((val=='F') ? (Color::Red) : (Color::Cyan)));
     std::cout << ' ' << (((val=='T')||(val=='F'))?val:'E') << ' ';
     for (size_t i = 0; i < numEndingSpaces; i++)
-        std::cout << ' ';
+        std::cout << ' '; setPrintColor(Color::White);
 }
 void showTable(const char* mainFormula, const bool& showVars=true) {
     tableFormulas.push_back(mainFormula);
@@ -116,11 +129,11 @@ void showTable(const char* mainFormula, const bool& showVars=true) {
     }
     printLine(showVars);// dash line at bottom of table
     for (size_t i = 0; i < tableFormulas.size(); i++) {// print if each expression is a tautology, contradiction, or contingency
-        std::cout << tableFormulas[i];
-        if (isFormulaTautology[i])          std::cout << " is a Tautology";
-        else if (isFormulaContradiction[i]) std::cout << " is a Contradiction";
-        else                                std::cout << " is a Contingency";
-        std::cout << '.' << std::endl;
+        setPrintColor(Color::Blue); std::cout << tableFormulas[i]; setPrintColor(Color::White);
+        if (isFormulaTautology[i])          { std::cout << " is a ";   setPrintColor(Color::Green); std::cout << "Tautology";     }
+        else if (isFormulaContradiction[i]) { std::cout << " is a ";   setPrintColor(Color::Red);   std::cout << "Contradiction"; }
+        else                                { std::cout << " is a Contingency"; }
+        setPrintColor(Color::White); std::cout << '.' << std::endl;
     }
     variables.clear();// clear variables list and add last end line
     tableFormulas.clear();
