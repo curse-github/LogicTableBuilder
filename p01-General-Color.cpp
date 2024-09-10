@@ -95,8 +95,7 @@ void printFormula(std::string formula) {// print the value as T, F, or E
 void printValue(const char& val, const int& numEndingSpaces) {// print the value as T, F, or E
     std::cout << '|'; setPrintColor((val=='T') ? Color::Green : ((val=='F') ? (Color::Red) : (Color::Cyan)));
     std::cout << ' ' << (((val=='T')||(val=='F'))?val:'E') << ' ';
-    for (size_t i = 0; i < numEndingSpaces; i++)
-        std::cout << ' '; setPrintColor(Color::White);
+    std::cout << std::string(numEndingSpaces,' '); setPrintColor(Color::White);
 }
 void showTable(const char* mainFormula, const bool& showVars=true) {
     tableFormulas.push_back(mainFormula);
@@ -143,7 +142,7 @@ void showTable(const char* mainFormula, const bool& showVars=true) {
 int main() {
     showTable("(p+q) * (~p*~q)",true);
     showTable("(p<->q) -> (~p<->~q)",true);
-    showTable("((p+q)*(~p^r)) === (p*r)",true);
+    showTable("(p+q)*(~p^r) === (p*r)",true);
     showTable("[(p->r)->q] <-> [p->(q->r)]",true);
     return 0;
 }
