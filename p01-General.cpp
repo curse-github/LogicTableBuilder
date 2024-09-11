@@ -18,8 +18,7 @@ std::string removeSpaces(std::string input) {
 std::vector<char> variables;// list of single character variable names
 long variableValues = 0;// bitmap for the values of each variable bits 0-25 are 'a'-'z' and bits 26-51 are 'A'-'Z'
 std::vector<std::string> tableFormulas;// holds each formula the the user inputs
-std::vector<bool> isFormulaTautology;// holds whether each valud alwasy evaluated to true
-std::vector<bool> isFormulaContradiction;// holds whether each formula always evaluated to false
+std::vector<int> numTruthCases;// holds how many truth cases each formula has
 char getVar(const char& A) {
     if ((A=='T')||(A=='1')) return 'T';
     else if ((A=='F')||(A=='0')) return 'F';
@@ -81,16 +80,13 @@ void printFormula(std::string formula) {// print the value as T, F, or E
 }
 void printValue(const char& val, const int& numEndingSpaces) {// print the value as T, F, or E
     std::cout << '|';
-    std::cout << ' ' << (((val=='T')||(val=='F'))?val:'E') << ' ';
+    std::cout << ' ' << ((val=='T')?'1':((val=='F')?'0':'E')) << ' ';
     std::cout << std::string(numEndingSpaces,' ');
 }
 void showTable(const char* mainFormula, const bool& showVars=true) {
     tableFormulas.push_back(mainFormula);
     eval(removeSpaces(mainFormula),mainFormula);
-    for (size_t i = 0; i < tableFormulas.size(); i++) {
-        isFormulaTautology.push_back(true);
-        isFormulaContradiction.push_back(true);
-    }
+    numTruthCases=std::vector(tableFormulas.size(),0);
     std::cout << std::endl;
     printLine(showVars);// dash line above table
     for (size_t i = 0; (i < variables.size())&&showVars; i++)
@@ -108,23 +104,21 @@ void showTable(const char* mainFormula, const bool& showVars=true) {
         for (size_t j = 0; j < tableFormulas.size(); j++) {// print the columns for each formula
             char returnVal = eval(removeSpaces(tableFormulas[j]),tableFormulas[j]);// evaluate the formula after setting each variables
             printValue(returnVal,tableFormulas[j].size()-1);// print value
-            if (returnVal=='T') isFormulaContradiction[j]=false;
-            else if (returnVal=='F') isFormulaTautology[j]=false;
+            if (returnVal=='T') numTruthCases[j]++;
         }
         std::cout << '|' << std::endl;
     }
     printLine(showVars);// dash line at bottom of table
     for (size_t i = 0; i < tableFormulas.size(); i++) {// print if each expression is a tautology, contradiction, or contingency
-        std::cout << tableFormulas[i];
-        if (isFormulaTautology[i])          std::cout << " is a Tautology";
-        else if (isFormulaContradiction[i]) std::cout << " is a Contradiction";
-        else                                std::cout << " is a Contingency";
+        std::cout << tableFormulas[i] << " has " << numTruthCases[i] << " truth cases and ";
+        if (numTruthCases[i]==(1<<variables.size())) { std::cout << "is a Tautology"; }
+        else if (numTruthCases[i]==0)                { std::cout << "is a Contradiction"; }
+        else                                         { std::cout << "is a Contingency"; }
         std::cout << '.' << std::endl;
     }
     variables.clear();// clear variables list and add last end line
     tableFormulas.clear();
-    isFormulaTautology.clear();
-    isFormulaContradiction.clear();
+    numTruthCases.clear();
 }
 int main() {
     showTable("(p+q) * (~p*~q)",true);
