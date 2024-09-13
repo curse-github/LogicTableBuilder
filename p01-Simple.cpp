@@ -29,9 +29,9 @@ int main() {
     bool q = true;
     bool r = true;
     std::vector<int> truthCases = { 0, 0, 0, 0, 0 };// print header
-    std::cout << "_________________________________________" << std::endl;
+    std::cout << std::string(41,'-') << std::endl;
     std::cout << "| p | q | p+q | ~p*~q | (p+q) * (~p*~q) |" << std::endl;
-    std::cout << "|---------------------------------------|" << std::endl;
+    std::cout << std::string(41,'-') << std::endl;
     for (size_t i = 0; i < 4; i++) {
         p=(i&2)==0;
         q=(i&1)==0;
@@ -44,7 +44,7 @@ int main() {
         std::cout << getValue(!p&&!q) << "     | ";
         std::cout << getValue((p||q)==(!p&&!q)) << "               |" << std::endl;
     }
-    std::cout << converter.to_bytes(std::wstring(41,L'‾')) << std::endl;
+    std::cout << std::string(41,'-') << std::endl;
     printTruthCase(truthCases[0],4,"p+q");
     printTruthCase(truthCases[1],4,"~p*~q");
     printTruthCase(truthCases[2],4,"(p+q) * (~p*~q)");
@@ -52,9 +52,9 @@ int main() {
 
     // formula two
     truthCases = { 0, 0, 0, 0, 0 };// print header
-    std::cout << "__________________________________________________" << std::endl;
+    std::cout << std::string(50,'-') << std::endl;
     std::cout << "| p | q | p<->q | ~p<->~q | (p<->q) -> (~p<->~q) |" << std::endl;
-    std::cout << "|------------------------------------------------|" << std::endl;
+    std::cout << std::string(50,'-') << std::endl;
     for (size_t i = 0; i < 4; i++) {// print each row
         p=(i&2)==0;
         q=(i&1)==0;
@@ -67,7 +67,7 @@ int main() {
         std::cout << getValue(!p==!q) << "       | ";
         std::cout << getValue(conditional(p==q,!p==!q)) << "                    |" << std::endl;
     }
-    std::cout << converter.to_bytes(std::wstring(50,L'‾')) << std::endl;
+    std::cout << std::string(50,'-') << std::endl;
     printTruthCase(truthCases[0],4,"p<->q");
     printTruthCase(truthCases[1],4,"~p<->~q");
     printTruthCase(truthCases[2],4,"(p<->q) -> (~p<->~q)");
@@ -75,9 +75,9 @@ int main() {
 
     // formula three
     truthCases = { 0, 0, 0, 0, 0 };// print header
-    std::cout << "_________________________________________________________" << std::endl;
+    std::cout << std::string(57,'-') << std::endl;
     std::cout << "| p | q | r | p+q | ~p^r | p*r | (p+q)*(~p^r) === (p*r) |" << std::endl;
-    std::cout << "|-------------------------------------------------------|" << std::endl;
+    std::cout << std::string(57,'-') << std::endl;
     for (size_t i = 0; i < 8; i++) {// print each row
         p=(i&4)==0;
         q=(i&2)==0;
@@ -93,7 +93,7 @@ int main() {
         std::cout << getValue(!p!=r) << "    | ";
         std::cout << getValue(p&&r) << "   | " << getValue(((p||q)&&(!p!=r))==(p&&r)) << "                      |" << std::endl;
     }
-    std::cout << converter.to_bytes(std::wstring(72,L'‾')) << std::endl;
+    std::cout << std::string(57,'-') << std::endl;
     printTruthCase(truthCases[0],8,"p+q");
     printTruthCase(truthCases[1],8,"~p^r");
     printTruthCase(truthCases[2],8,"p*r");
@@ -102,9 +102,9 @@ int main() {
 
     // formula four
     truthCases = { 0, 0, 0, 0, 0 };// print header
-    std::cout << "_________________________________________________________________________________" << std::endl;
+    std::cout << std::string(81,'-') << std::endl;
     std::cout << "| p | r | q | p->r | (p->r)->q | q->r | p->(q->r) | [(p->r)->q] <-> [p->(q->r)] |" << std::endl;
-    std::cout << "|-------------------------------------------------------------------------------|" << std::endl;
+    std::cout << std::string(81,'-') << std::endl;
     for (size_t i = 0; i < 8; i++) {// print each row
         p=(i&4)==0;
         r=(i&2)==0;
@@ -123,7 +123,7 @@ int main() {
         std::cout << getValue(conditional(p,conditional(q,r))) << "         | ";
         std::cout << getValue((conditional(conditional(p,r),q))==(conditional(p,conditional(q,r)))) << "                           |" << std::endl;
     }
-    std::cout << converter.to_bytes(std::wstring(81,L'‾')) << std::endl;
+    std::cout << std::string(81,'-') << std::endl;
     printTruthCase(truthCases[0],8,"p->r");
     printTruthCase(truthCases[1],8,"(p->r)->q");
     printTruthCase(truthCases[2],8,"q->r");
